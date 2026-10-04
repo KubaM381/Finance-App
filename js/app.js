@@ -1,0 +1,1 @@
+const registerServiceWorker=async()=>{if(!("serviceWorker"in navigator))return;try{await navigator.serviceWorker.register("./service-worker.js")}catch(error){console.error("Service worker registration failed:",error)}};document.addEventListener("DOMContentLoaded",registerServiceWorker);
