@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local configuration
+*.local
+.env
+.env.*
+
+# Never commit personal financial data
+backups/
+imports/
+*.csv
+*.xlsx
+*.pdf
