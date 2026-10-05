@@ -1,1 +1,80 @@
-@media(max-width:700px){#app{padding:24px 16px}}
+/* Sehr schmale Smartphones */
+@media (max-width: 359px) {
+  .nav-link { font-size: 9.5px; }
+  .card-value { font-size: 18px; }
+}
+
+/* Tablet */
+@media (min-width: 700px) {
+  #app {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .dash {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .card { padding: 20px; }
+  .tx-card { padding: 20px 20px 8px; }
+  .card-value { font-size: 24px; }
+  .page-title { font-size: 34px; }
+}
+
+/* Desktop: Navigation als Seitenleiste */
+@media (min-width: 900px) {
+  body { padding-left: 248px; }
+
+  #app {
+    padding-top: 40px;
+    padding-bottom: 48px;
+  }
+
+  .nav {
+    top: 0;
+    right: auto;
+    bottom: auto;
+    width: 248px;
+    padding: calc(var(--sat) + 28px) 16px 24px;
+    background: var(--surface);
+    border-top: 0;
+    border-right: 1px solid var(--line);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px 24px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-link {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    height: 46px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 15px;
+  }
+
+  .nav-link:hover,
+  .nav-link[aria-current="page"] { background: var(--accent-soft); }
+}

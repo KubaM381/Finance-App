@@ -1,1 +1,175 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="manifest.json"><title>Finance App</title></head><body><main id="app"><h1>Finance App</h1></main><script type="module" src="js/app.js"></script></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Finance App</title>
+<meta name="description" content="Private Finanz-App, die lokal auf deinem Gerät läuft.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f5f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1512" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finance">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5M5.5 10v9.5h13V10M10 19.5v-5h4v5"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16.5 14.5h.01"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20v-8M12 20V5M19 20v-5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+</svg>
+
+<nav class="nav" aria-label="Hauptnavigation">
+  <div class="brand">
+    <img class="brand-mark" src="icons/icon-192.png" alt="" width="32" height="32">
+    <span>Finance App</span>
+  </div>
+  <ul class="nav-list">
+    <li><a class="nav-link" href="#dashboard" data-nav="dashboard"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span>Übersicht</span></a></li>
+    <li><a class="nav-link" href="#konten" data-nav="konten"><svg class="icon" aria-hidden="true"><use href="#i-wallet"/></svg><span>Konten</span></a></li>
+    <li><a class="nav-link" href="#transaktionen" data-nav="transaktionen"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span>Transaktionen</span></a></li>
+    <li><a class="nav-link" href="#statistiken" data-nav="statistiken"><svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg><span>Statistiken</span></a></li>
+    <li><a class="nav-link" href="#einstellungen" data-nav="einstellungen"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg><span>Einstellungen</span></a></li>
+  </ul>
+</nav>
+
+<main id="app">
+
+  <section data-view="dashboard" aria-labelledby="t-dashboard">
+    <header class="page-head">
+      <h1 class="page-title" id="t-dashboard" tabindex="-1">Übersicht</h1>
+      <span class="chip">Beispieldaten</span>
+    </header>
+
+    <div class="dash">
+      <article class="hero">
+        <p class="card-label">Gesamtvermögen</p>
+        <p class="hero-value num">123.456,78 €</p>
+        <p class="hero-delta num">+750,00 € in diesem Monat</p>
+        <svg class="spark" viewBox="0 0 320 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path class="spark-area" d="M0 56 L40 52 L80 58 L120 44 L160 46 L200 32 L240 35 L280 20 L320 12 L320 72 L0 72 Z"/>
+          <path class="spark-line" d="M0 56 L40 52 L80 58 L120 44 L160 46 L200 32 L240 35 L280 20 L320 12"/>
+        </svg>
+      </article>
+
+      <article class="card">
+        <p class="card-label">Kontostand</p>
+        <p class="card-value num">4.321,00 €</p>
+        <p class="card-note">Girokonto (Beispiel)</p>
+      </article>
+
+      <article class="card">
+        <div class="stat-head">
+          <span class="stat-icon in"><svg class="icon" aria-hidden="true"><use href="#i-down"/></svg></span>
+          <p class="card-label">Einnahmen</p>
+        </div>
+        <p class="card-value num">3.000,00 €</p>
+        <p class="card-note">Oktober</p>
+      </article>
+
+      <article class="card">
+        <div class="stat-head">
+          <span class="stat-icon out"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg></span>
+          <p class="card-label">Ausgaben</p>
+        </div>
+        <p class="card-value num">2.250,00 €</p>
+        <p class="card-note">Oktober</p>
+      </article>
+
+      <article class="card">
+        <p class="card-label">Sparquote</p>
+        <p class="card-value num">25 %</p>
+        <div class="meter" role="img" aria-label="Sparquote 25 Prozent (Beispiel)"><span style="width:25%"></span></div>
+      </article>
+
+      <article class="card tx-card">
+        <div class="section-head">
+          <h2>Letzte Transaktionen</h2>
+          <a class="link" href="#transaktionen">Alle anzeigen</a>
+        </div>
+        <ul class="tx-list">
+          <li class="tx">
+            <span class="avatar" aria-hidden="true">G</span>
+            <div class="tx-main"><p class="tx-name">Gehalt (Beispiel)</p><p class="tx-meta">Einnahmen · 01.10.</p></div>
+            <span class="amount pos num">+3.000,00 €</span>
+          </li>
+          <li class="tx">
+            <span class="avatar" aria-hidden="true">M</span>
+            <div class="tx-main"><p class="tx-name">Miete (Beispiel)</p><p class="tx-meta">Wohnen · 02.10.</p></div>
+            <span class="amount num">−900,00 €</span>
+          </li>
+          <li class="tx">
+            <span class="avatar" aria-hidden="true">S</span>
+            <div class="tx-main"><p class="tx-name">Supermarkt (Beispiel)</p><p class="tx-meta">Lebensmittel · 03.10.</p></div>
+            <span class="amount num">−54,20 €</span>
+          </li>
+          <li class="tx">
+            <span class="avatar" aria-hidden="true">T</span>
+            <div class="tx-main"><p class="tx-name">Tankstelle (Beispiel)</p><p class="tx-meta">Mobilität · 04.10.</p></div>
+            <span class="amount num">−61,45 €</span>
+          </li>
+          <li class="tx">
+            <span class="avatar" aria-hidden="true">S</span>
+            <div class="tx-main"><p class="tx-name">Streaming (Beispiel)</p><p class="tx-meta">Freizeit · 04.10.</p></div>
+            <span class="amount num">−12,99 €</span>
+          </li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section data-view="konten" aria-labelledby="t-konten" hidden>
+    <header class="page-head"><h1 class="page-title" id="t-konten" tabindex="-1">Konten</h1></header>
+    <div class="card empty">
+      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-wallet"/></svg></span>
+      <h2>Noch keine Konten</h2>
+      <p>Hier legst du später deine Konten an.</p>
+    </div>
+  </section>
+
+  <section data-view="transaktionen" aria-labelledby="t-transaktionen" hidden>
+    <header class="page-head"><h1 class="page-title" id="t-transaktionen" tabindex="-1">Transaktionen</h1></header>
+    <div class="card empty">
+      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></span>
+      <h2>Noch keine Transaktionen</h2>
+      <p>Hier erscheinen später alle deine Buchungen.</p>
+    </div>
+  </section>
+
+  <section data-view="statistiken" aria-labelledby="t-statistiken" hidden>
+    <header class="page-head"><h1 class="page-title" id="t-statistiken" tabindex="-1">Statistiken</h1></header>
+    <div class="card empty">
+      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg></span>
+      <h2>Noch keine Auswertungen</h2>
+      <p>Hier siehst du später, wohin dein Geld fließt.</p>
+    </div>
+  </section>
+
+  <section data-view="einstellungen" aria-labelledby="t-einstellungen" hidden>
+    <header class="page-head"><h1 class="page-title" id="t-einstellungen" tabindex="-1">Einstellungen</h1></header>
+    <div class="card list-card">
+      <div class="row"><span>Darstellung</span><span class="soon">Bald verfügbar</span></div>
+      <div class="row"><span>Sicherheit</span><span class="soon">Bald verfügbar</span></div>
+      <div class="row"><span>Backup</span><span class="soon">Bald verfügbar</span></div>
+    </div>
+    <p class="foot-note">Version 0.1 · Deine Daten bleiben später ausschließlich auf diesem Gerät.</p>
+  </section>
+
+</main>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,1 +1,17 @@
-{"name":"Finance App","short_name":"Finance","start_url":"./","display":"standalone","background_color":"#fff","theme_color":"#fff","lang":"de","icons":[]}
+{
+  "name": "Finance App",
+  "short_name": "Finance",
+  "description": "Private Finanz-App, die lokal auf deinem Gerät läuft.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f5f3",
+  "theme_color": "#f2f5f3",
+  "categories": ["finance"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

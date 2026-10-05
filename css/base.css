@@ -1,1 +1,99 @@
-:root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;color:#111827;background:#f7f7f8}*{box-sizing:border-box}html,body{margin:0;min-height:100%}body{min-height:100vh}button,input,select,textarea{font:inherit}
+:root {
+  color-scheme: light dark;
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --bg: #f2f5f3;
+  --surface: #ffffff;
+  --ink: #13201b;
+  --muted: #5a6963;
+  --line: #e0e7e3;
+  --accent: #0d6b5a;
+  --accent-soft: #e1f0ea;
+  --income: #16794f;
+  --income-soft: #e0f2ea;
+  --expense: #b83a26;
+  --expense-soft: #fbe7e2;
+  --nav-bg: rgba(255, 255, 255, 0.86);
+
+  --hero: #0d5547;
+  --hero-ink: #ffffff;
+  --hero-muted: rgba(255, 255, 255, 0.74);
+  --hero-line: #8ff0d0;
+
+  --radius-lg: 24px;
+  --radius-md: 18px;
+  --nav-h: 60px;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1512;
+    --surface: #16211c;
+    --ink: #e9f1ed;
+    --muted: #93a89f;
+    --line: #25342c;
+    --accent: #58d6b4;
+    --accent-soft: #1b3a31;
+    --income: #4cd08f;
+    --income-soft: #1a3a2c;
+    --expense: #ff8a73;
+    --expense-soft: #3b2420;
+    --nav-bg: rgba(22, 33, 28, 0.86);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+h1, h2, p { margin: 0; }
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea { font: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[hidden] { display: none !important; }
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
