@@ -141,12 +141,26 @@
   </section>
 
   <section data-view="transaktionen" aria-labelledby="t-transaktionen" hidden>
-    <header class="page-head"><h1 class="page-title" id="t-transaktionen" tabindex="-1">Transaktionen</h1></header>
-    <div class="card empty">
+    <header class="page-head">
+      <h1 class="page-title" id="t-transaktionen" tabindex="-1">Transaktionen</h1>
+      <label class="btn btn-primary" id="import-label" for="import-file">
+        Importieren
+        <input type="file" id="import-file" accept=".csv,.tsv,.txt,.pdf,text/csv,text/plain,application/pdf" hidden>
+      </label>
+    </header>
+
+    <div id="import-status" class="notice" role="status" hidden></div>
+    <div id="import-panel" hidden></div>
+
+    <div id="tx-empty" class="card empty">
       <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></span>
       <h2>Noch keine Transaktionen</h2>
-      <p>Hier erscheinen später alle deine Buchungen.</p>
+      <p>Importiere einen Kontoauszug als PDF oder CSV. Die Datei wird nur lokal in deinem Browser verarbeitet und nie hochgeladen.</p>
     </div>
+    <div id="tx-list-card" class="card tx-card" hidden>
+      <ul class="tx-list" id="tx-list"></ul>
+    </div>
+    <p id="tx-more" class="foot-note" hidden></p>
   </section>
 
   <section data-view="statistiken" aria-labelledby="t-statistiken" hidden>

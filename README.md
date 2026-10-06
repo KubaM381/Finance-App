@@ -13,3 +13,15 @@ Private, offline-first personal finance PWA.
 ## Structure
 
 `index.html` · `manifest.json` · `service-worker.js` · `css/` · `js/db/` · `js/accounts/` · `js/transactions/` · `js/dashboard/` · `js/import/` · `js/backup/` · `js/security/`
+
+## Kontoauszug-Import (PDF / CSV)
+
+Unter **Transaktionen → Importieren** lassen sich Kontoauszüge als PDF oder CSV laden. Die Dateien werden ausschließlich lokal im Browser gelesen (kein Upload) und nach einer Vorschau in IndexedDB gespeichert.
+
+- `js/import/csv.js` – CSV: Kodierung, Trennzeichen, Kopfzeile/Spalten; Bankprofile in `CSV_PROFILES`
+- `js/import/pdf.js` – PDF-Text via pdf.js (lokal in `js/vendor/pdfjs/`, Apache-2.0); Bankprofile in `PDF_PROFILES`
+- `js/import/importer.js` – Vorschau, Korrektur, Duplikatprüfung, Speichern/Rückgängig
+- `js/transactions/` – einheitliches Transaktionsformat, Betrags-/Datumsparser, Kategorien
+- `js/db/`, `js/accounts/` – IndexedDB-Schema und Konten
+
+Beim Ändern von App-Dateien die Version in `service-worker.js` erhöhen.

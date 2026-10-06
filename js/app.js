@@ -64,3 +64,8 @@ const registerServiceWorker = async () => {
 showView();
 window.addEventListener("hashchange", showView);
 window.addEventListener("load", registerServiceWorker);
+
+// Import-Funktion separat laden: Fehler dort dürfen Navigation und Grundfunktionen der App nicht blockieren.
+import("./import/importer.js")
+  .then((module) => module.initImport())
+  .catch((error) => console.error("Import konnte nicht gestartet werden:", error));
