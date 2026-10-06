@@ -1,5 +1,5 @@
 // Bei jeder Änderung an den App-Dateien die Versionsnummer erhöhen (v6 → v7 …).
-const CACHE = "finance-app-v6";
+const CACHE = "finance-app-v7";
 
 // Nur diese statischen App-Dateien werden gecached. Alles andere läuft am Cache vorbei,
 // damit niemals persönliche Daten, Importdateien oder fremde Inhalte im Cache landen.
