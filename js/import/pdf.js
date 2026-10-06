@@ -49,8 +49,18 @@ export async function extractLines(pdf) {
   const lines = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const items = content.items
+
+    // Safari-Versionen, in denen ReadableStream nicht async-iterierbar ist,
+    // werfen innerhalb von PDF.js bei page.getTextContent() den Fehler
+    // "undefined is not a function". Die Reader-API funktioniert dort weiterhin.
+    const textItems = [];
+    const reader = page.streamTextContent().getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value?.items?.length) textItems.push(...value.items);
+    }
+    const items = textItems
       .filter((i) => typeof i.str === "string" && i.str.trim() !== "")
       .map((i) => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width, h: i.height || Math.abs(i.transform[3]) || 8 }))
       .sort((a, b) => b.y - a.y || a.x - b.x);
