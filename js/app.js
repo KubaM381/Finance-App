@@ -80,3 +80,8 @@ import("./contracts/view.js")
 import("./dashboard/dashboard.js")
   .then((module) => module.initKonto())
   .catch((error) => console.error("Konto-Übersicht konnte nicht gestartet werden:", error));
+
+// Reiter „Übersicht“ (echte Daten statt Beispielwerten) ebenfalls separat laden.
+import("./dashboard/overview.js")
+  .then((module) => module.initOverview())
+  .catch((error) => console.error("Übersicht konnte nicht gestartet werden:", error));

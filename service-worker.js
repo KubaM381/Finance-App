@@ -1,5 +1,5 @@
-// Bei jeder Änderung an den App-Dateien die Versionsnummer erhöhen (v6 → v7 …).
-const CACHE = "finance-app-v7";
+// Bei jeder Änderung an den App-Dateien die Versionsnummer erhöhen (v7 → v8 …).
+const CACHE = "finance-app-v8";
 
 // Nur diese statischen App-Dateien werden gecached. Alles andere läuft am Cache vorbei,
 // damit niemals persönliche Daten, Importdateien oder fremde Inhalte im Cache landen.
@@ -17,6 +17,7 @@ const SHELL = [
   "./js/transactions/transactions.js",
   "./js/transactions/categories.js",
   "./js/dashboard/dashboard.js",
+  "./js/dashboard/overview.js",
   "./js/contracts/contracts.js",
   "./js/contracts/view.js",
   "./js/import/importer.js",
@@ -32,6 +33,11 @@ const SHELL = [
 
 // Relative Pfade werden relativ zum Service Worker aufgelöst (also unter /Finance-App/).
 const SHELL_URLS = new Set(SHELL.map((path) => new URL(path, self.location).href));
+
+// Geteilte Dateien (Web Share Target): kurz in einem eigenen Cache ablegen, die App holt sie ab und löscht sie sofort.
+// Der Name beginnt bewusst nicht mit "finance-app-", damit "activate" ihn nicht anfasst.
+const SHARE_CACHE = "finance-share-inbox";
+const SHARE_PATH = new URL("./share-target", self.location).pathname;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -60,6 +66,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
+
+  if (request.method === "POST" && new URL(request.url).pathname === SHARE_PATH) {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
@@ -72,6 +84,28 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(respond(event, request, key));
 });
+
+async function receiveShare(request) {
+  try {
+    const form = await request.formData();
+    const files = form.getAll("files").filter((f) => typeof f === "object" && f && "name" in f);
+    const cache = await caches.open(SHARE_CACHE);
+    await Promise.all((await cache.keys()).map((key) => cache.delete(key)));
+    await Promise.all(files.map((file, i) =>
+      cache.put(
+        new URL(`./shared/${i}`, self.location).href,
+        new Response(file, {
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name)
+          }
+        })
+      )));
+  } catch {
+    /* Die App öffnet sich trotzdem, es gibt dann nur nichts zu importieren. */
+  }
+  return Response.redirect(new URL("./?shared=1#transaktionen", self.location).href, 303);
+}
 
 // Aus dem Cache antworten (schnell, auch offline) und im Hintergrund aktualisieren.
 async function respond(event, request, key) {

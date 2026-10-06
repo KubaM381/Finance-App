@@ -95,6 +95,12 @@ export function formatAmountInput(cents) {
   return `${cents < 0 ? "-" : ""}${Math.trunc(abs / 100)},${pad(abs % 100)}`;
 }
 
+/* ---------- Sortierung ---------- */
+
+// Neueste zuerst; bei gleichem Datum der zuletzt importierte Eintrag zuerst.
+export const compareByDateDesc = (a, b) =>
+  b.date.localeCompare(a.date) || (b.importedAt || "").localeCompare(a.importedAt || "");
+
 /* ---------- Entwürfe (Vorschau vor dem Import) ---------- */
 
 const clean = (value) => String(value ?? "").replace(/\s+/g, " ").trim();

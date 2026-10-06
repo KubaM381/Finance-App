@@ -56,84 +56,8 @@
   <section data-view="dashboard" aria-labelledby="t-dashboard">
     <header class="page-head">
       <h1 class="page-title" id="t-dashboard" tabindex="-1">Übersicht</h1>
-      <span class="chip">Beispieldaten</span>
     </header>
-
-    <div class="dash">
-      <article class="hero">
-        <p class="card-label">Gesamtvermögen</p>
-        <p class="hero-value num">123.456,78 €</p>
-        <p class="hero-delta num">+750,00 € in diesem Monat</p>
-        <svg class="spark" viewBox="0 0 320 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-          <path class="spark-area" d="M0 56 L40 52 L80 58 L120 44 L160 46 L200 32 L240 35 L280 20 L320 12 L320 72 L0 72 Z"/>
-          <path class="spark-line" d="M0 56 L40 52 L80 58 L120 44 L160 46 L200 32 L240 35 L280 20 L320 12"/>
-        </svg>
-      </article>
-
-      <article class="card">
-        <p class="card-label">Kontostand</p>
-        <p class="card-value num">4.321,00 €</p>
-        <p class="card-note">Girokonto (Beispiel)</p>
-      </article>
-
-      <article class="card">
-        <div class="stat-head">
-          <span class="stat-icon in"><svg class="icon" aria-hidden="true"><use href="#i-down"/></svg></span>
-          <p class="card-label">Einnahmen</p>
-        </div>
-        <p class="card-value num">3.000,00 €</p>
-        <p class="card-note">Oktober</p>
-      </article>
-
-      <article class="card">
-        <div class="stat-head">
-          <span class="stat-icon out"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg></span>
-          <p class="card-label">Ausgaben</p>
-        </div>
-        <p class="card-value num">2.250,00 €</p>
-        <p class="card-note">Oktober</p>
-      </article>
-
-      <article class="card">
-        <p class="card-label">Sparquote</p>
-        <p class="card-value num">25 %</p>
-        <div class="meter" role="img" aria-label="Sparquote 25 Prozent (Beispiel)"><span style="width:25%"></span></div>
-      </article>
-
-      <article class="card tx-card">
-        <div class="section-head">
-          <h2>Letzte Transaktionen</h2>
-          <a class="link" href="#transaktionen">Alle anzeigen</a>
-        </div>
-        <ul class="tx-list">
-          <li class="tx">
-            <span class="avatar" aria-hidden="true">G</span>
-            <div class="tx-main"><p class="tx-name">Gehalt (Beispiel)</p><p class="tx-meta">Einnahmen · 01.10.</p></div>
-            <span class="amount pos num">+3.000,00 €</span>
-          </li>
-          <li class="tx">
-            <span class="avatar" aria-hidden="true">M</span>
-            <div class="tx-main"><p class="tx-name">Miete (Beispiel)</p><p class="tx-meta">Wohnen · 02.10.</p></div>
-            <span class="amount num">−900,00 €</span>
-          </li>
-          <li class="tx">
-            <span class="avatar" aria-hidden="true">S</span>
-            <div class="tx-main"><p class="tx-name">Supermarkt (Beispiel)</p><p class="tx-meta">Lebensmittel · 03.10.</p></div>
-            <span class="amount num">−54,20 €</span>
-          </li>
-          <li class="tx">
-            <span class="avatar" aria-hidden="true">T</span>
-            <div class="tx-main"><p class="tx-name">Tankstelle (Beispiel)</p><p class="tx-meta">Mobilität · 04.10.</p></div>
-            <span class="amount num">−61,45 €</span>
-          </li>
-          <li class="tx">
-            <span class="avatar" aria-hidden="true">S</span>
-            <div class="tx-main"><p class="tx-name">Streaming (Beispiel)</p><p class="tx-meta">Freizeit · 04.10.</p></div>
-            <span class="amount num">−12,99 €</span>
-          </li>
-        </ul>
-      </article>
-    </div>
+    <div id="db-body"></div>
   </section>
 
   <section data-view="konto" aria-labelledby="t-konto" hidden>
@@ -146,7 +70,7 @@
       <h1 class="page-title" id="t-transaktionen" tabindex="-1">Transaktionen</h1>
       <label class="btn btn-primary" id="import-label" for="import-file">
         Importieren
-        <input type="file" id="import-file" accept=".csv,.tsv,.txt,.pdf,text/csv,text/plain,application/pdf" hidden>
+        <input type="file" id="import-file" accept=".csv,.tsv,.txt,.pdf,text/csv,text/plain,application/pdf" multiple hidden>
       </label>
     </header>
 

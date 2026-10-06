@@ -1,10 +1,10 @@
-// Import-Oberfläche: Datei wählen → lokal einlesen → Vorschau prüfen/korrigieren → speichern.
+// Import-Oberfläche: Dateien wählen → lokal einlesen → Vorschau prüfen/korrigieren → speichern.
 // Alle Daten bleiben im Browser (IndexedDB). Es werden keine Netzwerkanfragen mit Dateiinhalten gesendet.
 import { parseCsvFile } from "./csv.js";
 import { parsePdfFile } from "./pdf.js";
 import {
   ImportError, formatMoney, formatDate, formatAmountInput, parseAmount, validateDraft, applyDefaultInclude,
-  markDuplicates, toRecord, listTransactions, saveImport, undoImport
+  markDuplicates, toRecord, listTransactions, saveImport, undoImport, compareByDateDesc
 } from "../transactions/transactions.js";
 import { CATEGORY_NAMES } from "../transactions/categories.js";
 import { listAccounts, createAccount, matchAccountByIban, maskIban, suggestAccountName } from "../accounts/accounts.js";
@@ -13,9 +13,10 @@ import { newId } from "../db/database.js";
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const NEW_ACCOUNT = "__new__";
 const LIST_LIMIT = 200;
+const SHARE_CACHE = "finance-share-inbox";
 
 const state = {
-  drafts: [], meta: null, warnings: [], fileName: "", accounts: [], existing: [],
+  drafts: [], meta: null, warnings: [], fileName: "", accounts: [], existing: [], queue: [],
   accountChoice: NEW_ACCOUNT, newAccountName: "", onlyIssues: false, saving: false, lastImport: null
 };
 let ui = {};
@@ -50,7 +51,7 @@ function showStatus(text, kind = "ok", withUndo = false) {
 }
 const hideStatus = () => { ui.status.hidden = true; };
 
-/* ---------- Datei erkennen & einlesen ---------- */
+/* ---------- Dateien erkennen & einlesen ---------- */
 
 async function detectKind(file) {
   const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
@@ -62,31 +63,115 @@ async function detectKind(file) {
   return "csv";
 }
 
-async function handleFile(file) {
+async function parseOne(file) {
+  if (file.size > MAX_FILE_BYTES) throw new ImportError("Die Datei ist zu groß (maximal 25 MB).");
+  const kind = await detectKind(file);
+  const result = kind === "pdf" ? await parsePdfFile(file) : await parseCsvFile(file);
+  if (!result.drafts.length) throw new ImportError("Es wurden keine Buchungen erkannt.");
+  return result;
+}
+
+// Dateien mit gleicher IBAN landen in einer gemeinsamen Vorschau; weitere Konten folgen nacheinander.
+// Dateien ohne erkennbare IBAN werden dem einzigen erkannten Konto zugeordnet (in der Vorschau änderbar).
+function groupByAccount(parsed) {
+  const groups = new Map();
+  for (const item of parsed) {
+    const key = item.result.meta.iban || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const withoutIban = groups.get("");
+  if (withoutIban && groups.size === 2) {
+    groups.delete("");
+    [...groups.values()][0].push(...withoutIban);
+  }
+  return [...groups.values()];
+}
+
+// Neueste zuerst; Zeilen ohne Datum stehen oben, damit sie korrigiert werden können.
+const byDateDesc = (a, b) => (a.date ? 1 : 0) - (b.date ? 1 : 0) || (b.date || "").localeCompare(a.date || "");
+
+async function openNextGroup() {
+  const group = state.queue.shift();
+  if (!group) return false;
+  [state.accounts, state.existing] = await Promise.all([listAccounts(), listTransactions()]);
+
+  const drafts = [], warnings = [];
+  for (const { file, result } of group) {
+    const prefix = group.length > 1 ? `${file.name}: ` : "";
+    for (const d of result.drafts) { d.source = result.meta.format; drafts.push(d); }
+    warnings.push(...result.warnings.map((w) => prefix + w));
+  }
+  drafts.sort(byDateDesc);
+
+  const metas = group.map((g) => g.result.meta);
+  const currencies = new Set(metas.map((m) => m.currency));
+  const meta = {
+    ...metas[0],
+    iban: metas.map((m) => m.iban).find(Boolean) || "",
+    accountName: metas.map((m) => m.accountName).find(Boolean) || "",
+    currency: currencies.size === 1 ? metas[0].currency : "EUR",
+    label: [...new Set(metas.map((m) => `${m.format.toUpperCase()} · ${m.profile}`))].join(" + ")
+  };
+
+  Object.assign(state, { drafts, meta, warnings, fileName: group.map((g) => g.file.name).join(", "), onlyIssues: false });
+
+  const match = matchAccountByIban(state.accounts, meta.iban);
+  state.accountChoice = match ? match.id : !meta.iban && state.accounts.length === 1 ? state.accounts[0].id : NEW_ACCOUNT;
+  state.newAccountName = meta.accountName || suggestAccountName(meta.iban);
+
+  recompute(true);
+  renderPanel();
+  return true;
+}
+
+async function handleFiles(fileList) {
+  const files = [...fileList]; // sofort kopieren, die Liste wird unten geleert
+  if (!files.length) return;
   hideStatus();
-  if (file.size > MAX_FILE_BYTES) return showStatus("Die Datei ist zu groß (maximal 25 MB).", "error");
   ui.label.classList.add("is-busy");
-  showStatus("Datei wird lokal auf diesem Gerät gelesen …");
+  showStatus(files.length > 1 ? `${files.length} Dateien werden lokal auf diesem Gerät gelesen …` : "Datei wird lokal auf diesem Gerät gelesen …");
   try {
-    const kind = await detectKind(file);
-    const result = kind === "pdf" ? await parsePdfFile(file) : await parseCsvFile(file);
-    if (!result.drafts.length) throw new ImportError("Es wurden keine Buchungen erkannt.");
-
-    [state.accounts, state.existing] = await Promise.all([listAccounts(), listTransactions()]);
-    Object.assign(state, { drafts: result.drafts, meta: result.meta, warnings: result.warnings, fileName: file.name, onlyIssues: false });
-
-    const match = matchAccountByIban(state.accounts, result.meta.iban);
-    state.accountChoice = match ? match.id : !result.meta.iban && state.accounts.length === 1 ? state.accounts[0].id : NEW_ACCOUNT;
-    state.newAccountName = result.meta.accountName || suggestAccountName(result.meta.iban);
-
-    recompute(true);
-    renderPanel();
-    hideStatus();
+    const parsed = [], failed = [];
+    for (const file of files) {
+      try {
+        parsed.push({ file, result: await parseOne(file) });
+      } catch (error) {
+        const message = error instanceof ImportError ? error.message : `Der Import ist fehlgeschlagen: ${error?.message || error}`;
+        failed.push(files.length > 1 ? `${file.name}: ${message}` : message);
+      }
+    }
+    state.queue = groupByAccount(parsed);
+    const opened = await openNextGroup();
+    if (failed.length) showStatus(failed.join(" · "), "error");
+    else if (opened) hideStatus();
   } catch (error) {
-    showStatus(error instanceof ImportError ? error.message : `Der Import ist fehlgeschlagen: ${error?.message || error}`, "error");
+    showStatus(`Der Import ist fehlgeschlagen: ${error?.message || error}`, "error");
   } finally {
     ui.label.classList.remove("is-busy");
     ui.input.value = "";
+  }
+}
+
+// Dateien, die per „Teilen“ an die App gesendet wurden (der Service Worker legt sie kurz in einem Cache ab).
+async function takeSharedFiles() {
+  if (!new URLSearchParams(location.search).has("shared")) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+  try {
+    const cache = await caches.open(SHARE_CACHE);
+    const files = [];
+    for (const request of await cache.keys()) {
+      const response = await cache.match(request);
+      if (response) {
+        const blob = await response.blob();
+        const name = decodeURIComponent(response.headers.get("X-File-Name") || "Import");
+        files.push(new File([blob], name, { type: blob.type }));
+      }
+      await cache.delete(request); // Finanzdaten sofort wieder aus dem Cache entfernen
+    }
+    if (files.length) handleFiles(files);
+  } catch (error) {
+    showStatus(`Geteilte Dateien konnten nicht gelesen werden: ${error?.message || error}`, "error");
   }
 }
 
@@ -126,7 +211,7 @@ function renderPanel() {
     el("div", { class: "card pv-card" },
       el("div", { class: "section-head" },
         el("h2", { text: "Import prüfen" }),
-        el("span", { class: "chip", text: `${meta.format.toUpperCase()} · ${meta.profile}` })),
+        el("span", { class: "chip", text: meta.label || `${meta.format.toUpperCase()} · ${meta.profile}` })),
       el("p", { class: "card-note pv-file", text: state.fileName }),
       ...state.warnings.map((w) => el("p", { class: "pv-warning", text: w })),
       el("div", { class: "field" }, el("label", { for: "pv-account", text: "Konto" }), accountSelect, ui.accountName,
@@ -294,6 +379,7 @@ function onAction(event) {
     recompute();
     renderRows();
   } else if (act === "cancel") {
+    state.queue = []; // Abbrechen verwirft auch noch wartende Dateien
     closePanel();
   } else if (act === "import") {
     runImport();
@@ -333,7 +419,7 @@ async function runImport() {
     }
     const batchId = newId();
     const importedAt = new Date().toISOString();
-    const records = selected.map((d) => toRecord(d, accountId, batchId, state.meta.format, importedAt));
+    const records = selected.map((d) => toRecord(d, accountId, batchId, d.source || state.meta.format, importedAt));
     await saveImport({ accounts: newAccount ? [newAccount] : [], transactions: records });
     navigator.storage?.persist?.().catch(() => {});
 
@@ -341,7 +427,8 @@ async function runImport() {
     state.lastImport = { batchId, newAccountId: newAccount?.id || null };
     closePanel();
     await refreshList();
-    showStatus(`${records.length} Transaktionen importiert${skipped ? `, ${skipped} übersprungen` : ""}.`, "ok", true);
+    const more = await openNextGroup(); // weitere Konten aus derselben Auswahl nacheinander prüfen
+    showStatus(`${records.length} Transaktionen importiert${skipped ? `, ${skipped} übersprungen` : ""}.${more ? " Weiter mit dem nächsten Konto." : ""}`, "ok", true);
   } catch (error) {
     showStatus(`Speichern fehlgeschlagen: ${error?.message || error}`, "error");
   } finally {
@@ -373,7 +460,7 @@ function closePanel() {
 async function refreshList() {
   const [transactions, accounts] = await Promise.all([listTransactions(), listAccounts()]);
   const names = new Map(accounts.map((a) => [a.id, a.name]));
-  transactions.sort((a, b) => b.date.localeCompare(a.date) || b.importedAt.localeCompare(a.importedAt));
+  transactions.sort(compareByDateDesc);
   const hasData = transactions.length > 0;
   ui.empty.hidden = hasData || !ui.panel.hidden;
   ui.listCard.hidden = !hasData || !ui.panel.hidden;
@@ -403,11 +490,12 @@ export function initImport() {
   };
   if (Object.values(ui).some((node) => !node)) return;
 
-  ui.input.addEventListener("change", () => ui.input.files?.[0] && handleFile(ui.input.files[0]));
+  ui.input.addEventListener("change", () => ui.input.files?.length && handleFiles(ui.input.files));
   ui.panel.addEventListener("click", onAction);
   ui.panel.addEventListener("change", onPanelChange);
   ui.panel.addEventListener("input", (event) => { if (event.target.dataset?.act === "account-name") onPanelChange(event); else onField(event); });
   ui.status.addEventListener("click", onAction);
 
   refreshList().catch((error) => showStatus(`Lokale Datenbank nicht verfügbar: ${error?.message || error}`, "error"));
+  takeSharedFiles();
 }
