@@ -24,4 +24,11 @@ Unter **Transaktionen → Importieren** lassen sich Kontoauszüge als PDF oder C
 - `js/transactions/` – einheitliches Transaktionsformat, Betrags-/Datumsparser, Kategorien
 - `js/db/`, `js/accounts/` – IndexedDB-Schema und Konten
 
+## Verträge & Anlagen
+
+Der Reiter **Verträge** erkennt aus den importierten Transaktionen regelmäßige Ausgaben (Intervalle 1, 2, 3, 4, 6, 12, 24 Monate) und macht Vorschläge, die bestätigt, bearbeitet oder ignoriert werden. Anlagen (z. B. ETF-Sparplan) werden getrennt von den Vertragskosten ausgewiesen.
+
+- `js/contracts/contracts.js` – Erkennung, Kostenberechnung, Speicherung (IndexedDB-Store `contracts`, DB-Version 2)
+- `js/contracts/view.js` – Oberfläche des Reiters
+
 Beim Ändern von App-Dateien die Version in `service-worker.js` erhöhen.

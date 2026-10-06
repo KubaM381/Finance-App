@@ -2,6 +2,7 @@ const VIEWS = {
   dashboard: "Übersicht",
   konten: "Konten",
   transaktionen: "Transaktionen",
+  vertraege: "Verträge",
   statistiken: "Statistiken",
   einstellungen: "Einstellungen"
 };
@@ -69,3 +70,8 @@ window.addEventListener("load", registerServiceWorker);
 import("./import/importer.js")
   .then((module) => module.initImport())
   .catch((error) => console.error("Import konnte nicht gestartet werden:", error));
+
+// Reiter „Verträge“ ebenfalls separat laden (Fehler dort blockieren die restliche App nicht).
+import("./contracts/view.js")
+  .then((module) => module.initContracts())
+  .catch((error) => console.error("Verträge konnten nicht gestartet werden:", error));
