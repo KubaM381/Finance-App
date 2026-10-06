@@ -1,7 +1,6 @@
 const VIEWS = {
   dashboard: "Übersicht",
   konto: "Konto",
-  konten: "Konten",
   transaktionen: "Transaktionen",
   vertraege: "Verträge",
   statistiken: "Statistiken",
