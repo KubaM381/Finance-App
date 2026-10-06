@@ -93,10 +93,10 @@ const EVERYDAY_CATEGORIES = new Set(["Lebensmittel", "Restaurants & Café", "Bar
 
 /* ---------- Erkennung ---------- */
 
-function expenseItems(transactions) {
+function expenseItems(transactions, income = false) {
   return transactions
-    .filter((t) => t.amount < 0 && t.date)
-    .map((t) => ({ id: t.id, date: t.date, cents: -t.amount, payee: t.payee || "", purpose: t.purpose || "", category: t.category || "", key: groupKeyOf(t) }))
+    .filter((t) => (income ? t.amount > 0 : t.amount < 0) && t.date)
+    .map((t) => ({ id: t.id, date: t.date, cents: Math.abs(t.amount), payee: t.payee || "", purpose: t.purpose || "", category: t.category || "", key: groupKeyOf(t) }))
     .filter((t) => t.key);
 }
 
@@ -237,21 +237,78 @@ function analyzeGroup(items, dataEnd, today, groupKey) {
 const sameContract = (record, groupKey, bucket) =>
   record.groupKey === groupKey && (record.bucket == null || Math.abs(record.bucket - bucket) <= 2);
 
-// Liefert Vorschläge (ohne bereits bestätigte oder ignorierte), sortiert nach Vertrauenswert.
-export function detectSuggestions(transactions, records = [], { today = todayIso(), minConfidence = 0.5 } = {}) {
-  const items = expenseItems(transactions);
-  const dataEnd = transactions.reduce((max, t) => (t.date && t.date > max ? t.date : max), "0000-00-00");
-  if (!items.length) return [];
-  const suggestions = [];
+const latestDate = (transactions) => transactions.reduce((max, t) => (t.date && t.date > max ? t.date : max), "0000-00-00");
+
+function detectGroups(items, dataEnd, today, minConfidence) {
+  const found = [];
   for (const [groupKey, group] of indexByKey(items)) {
     if (group.length < 2) continue;
     for (const candidate of analyzeGroup(group, dataEnd, today, groupKey)) {
-      if (candidate.confidence < minConfidence) continue;
-      if (records.some((r) => sameContract(r, groupKey, candidate.bucket))) continue;
-      suggestions.push({ ...candidate, key: `${groupKey}|${candidate.bucket}`, groupKey });
+      if (candidate.confidence >= minConfidence) found.push({ ...candidate, key: `${groupKey}|${candidate.bucket}`, groupKey });
     }
   }
-  return suggestions.sort((a, b) => b.confidence - a.confidence || b.amount - a.amount);
+  return found.sort((a, b) => b.confidence - a.confidence || b.amount - a.amount);
+}
+
+// Liefert Vorschläge (ohne bereits bestätigte oder ignorierte), sortiert nach Vertrauenswert.
+export function detectSuggestions(transactions, records = [], { today = todayIso(), minConfidence = 0.5 } = {}) {
+  const items = expenseItems(transactions);
+  if (!items.length) return [];
+  return detectGroups(items, latestDate(transactions), today, minConfidence)
+    .filter((c) => !records.some((r) => sameContract(r, c.groupKey, c.bucket)));
+}
+
+// Regelmäßige Einnahmen (z. B. Gehalt, Rente, Mieteinnahmen) mit derselben Methode wie bei den Ausgaben.
+export function detectRecurringIncome(transactions, { today = todayIso(), minConfidence = 0.5 } = {}) {
+  const items = expenseItems(transactions, true);
+  return items.length ? detectGroups(items, latestDate(transactions), today, minConfidence) : [];
+}
+
+// Passenden Eintrag (gleicher Empfänger, ähnlicher Betrag) zu einer Transaktion finden.
+export function matchRecurring(list, tx, tolerance = 3) {
+  const key = groupKeyOf(tx);
+  if (!key) return null;
+  const bucket = bucketOf(Math.abs(tx.amount));
+  let best = null, bestDiff = Infinity;
+  for (const entry of list) {
+    if (entry.groupKey !== key) continue;
+    const diff = entry.bucket == null ? 0 : Math.abs(entry.bucket - bucket);
+    if (diff <= tolerance && diff < bestDiff) { best = entry; bestDiff = diff; }
+  }
+  return best;
+}
+
+// Ordnet jede Transaktion einer Anlage oder einem Vertrag zu. Vorrang: bestätigte Einträge > ignorierte (= "sonstige")
+// > automatisch erkannte Vorschläge (optional) > Anlagen-Kategorie/-Stichwörter.
+// Ergebnis: Map<Transaktions-ID, { kind: "contract" | "investment", source: "confirmed" | "detected" | "keyword", name }>
+export function classifyTransactions(transactions, records = [], { today = todayIso(), includeDetected = true } = {}) {
+  const active = records.filter((r) => r.status === "active" && r.groupKey);
+  const ignored = records.filter((r) => r.status === "ignored" && r.groupKey);
+  const suggestions = detectSuggestions(transactions, records, { today });
+  const classes = new Map();
+  for (const tx of transactions) {
+    const isIncome = tx.amount > 0;
+    if (!isIncome) {
+      const record = matchRecurring(active, tx);
+      if (record) { classes.set(tx.id, { kind: record.kind, source: "confirmed", name: record.name }); continue; }
+      if (matchRecurring(ignored, tx, 2)) { if (tx.category !== "Sparen & Anlage") continue; }
+      else if (includeDetected) {
+        const suggestion = matchRecurring(suggestions, tx);
+        if (suggestion) { classes.set(tx.id, { kind: suggestion.kind, source: "detected", name: suggestion.name }); continue; }
+      }
+    }
+    // Einmalige Investments (und Rückflüsse aus Anlagen) mindern bzw. erhöhen die Liquidität ebenfalls
+    if (tx.category === "Sparen & Anlage" || (!isIncome && isInvestment(`${tx.payee || ""} ${tx.purpose || ""}`))) {
+      classes.set(tx.id, { kind: "investment", source: "keyword", name: tx.payee || tx.category || "Anlage" });
+    }
+  }
+  return { classes, suggestions };
+}
+
+// Fällt (anchor + k·Intervall) in den Monat ym ("YYYY-MM")? Auch rückwärts, damit Prognosemonate vor dem Anker passen.
+export function dueInMonth(anchor, interval, ym) {
+  for (let k = -48; k <= 48; k++) if (addMonths(anchor, k * interval).slice(0, 7) === ym) return true;
+  return false;
 }
 
 /* ---------- Bestätigte Verträge / Anlagen ---------- */
@@ -278,7 +335,7 @@ export const createIgnored = (suggestion) => ({
 // (letzte Zahlung, Durchschnitt bei schwankendem Betrag), ohne den gespeicherten Eintrag zu ändern.
 export function describeContract(record, transactions, { today = todayIso() } = {}) {
   const items = expenseItems(transactions);
-  const dataEnd = transactions.reduce((max, t) => (t.date && t.date > max ? t.date : max), "0000-00-00");
+  const dataEnd = latestDate(transactions);
   const matches = record.groupKey
     ? items.filter((i) => i.key === record.groupKey && (record.bucket == null || Math.abs(bucketOf(i.cents) - record.bucket) <= 3))
         .sort((a, b) => a.date.localeCompare(b.date))

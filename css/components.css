@@ -324,7 +324,7 @@
 
 .nav-list {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -477,9 +477,17 @@
 
 /* ---------- Verträge & Anlagen ---------- */
 
-/* Sechs Tabs in der unteren Leiste: auf schmalen Geräten etwas kleinere Schrift */
+/* Sieben Tabs in der unteren Leiste: auf dem Handy Kurzbezeichnungen und kleinere Schrift */
+.nav-short { display: none; }
+
+@media (max-width: 699px) {
+  .nav-link { padding-left: 0; padding-right: 0; font-size: 10px; letter-spacing: -0.01em; }
+  .nav-full:not(:only-child) { display: none; }
+  .nav-short { display: inline; }
+}
+
 @media (max-width: 399px) {
-  .nav-link { font-size: 9.5px; letter-spacing: -0.01em; }
+  .nav-link { font-size: 9.5px; }
 }
 
 .ct-summary { margin-bottom: 16px; }
@@ -527,4 +535,85 @@
 
 @media (min-width: 700px) {
   .ct-summary .card { grid-column: span 2; }
+}
+
+/* ---------- Konto (Monatsübersicht) ---------- */
+
+.ko-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+
+.ko-nav select {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+  text-align: center;
+  text-align-last: center;
+}
+
+.icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+.ko-grid { display: grid; gap: 12px; align-items: start; }
+.ko-col { display: grid; gap: 12px; }
+
+.ko-hero { padding-bottom: 22px; }
+.ko-hero.neg { background: #7a2a1d; }
+.ko-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ko-chip { background: rgba(255, 255, 255, 0.16); color: var(--hero-ink); }
+.ko-hero-note { margin-top: 10px; font-size: 12px; color: var(--hero-muted); }
+
+.ko-card { padding: 8px 16px; }
+.ko-h { padding: 10px 0 4px; font-size: 17px; font-weight: 650; }
+
+.ko-row { padding: 12px 0; }
+.ko-row + .ko-row { border-top: 1px solid var(--line); }
+.ko-row > summary { display: grid; gap: 8px; list-style: none; cursor: pointer; }
+.ko-row > summary::-webkit-details-marker { display: none; }
+.ko-line { display: flex; align-items: center; gap: 10px; }
+.ko-label { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; }
+.ko-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.ko-bar { height: 6px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; }
+.ko-fill { display: block; height: 100%; border-radius: inherit; background: var(--muted); }
+
+.ko-income .ko-dot, .ko-income .ko-fill { background: var(--income); }
+.ko-contract .ko-dot, .ko-contract .ko-fill { background: var(--expense); }
+.ko-investment .ko-dot, .ko-investment .ko-fill { background: var(--accent); }
+.ko-other .ko-dot, .ko-other .ko-fill { background: var(--muted); }
+
+.ko-items { margin: 10px 0 0; padding: 0; list-style: none; }
+.ko-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; }
+.ko-item + .ko-item { border-top: 1px dashed var(--line); }
+.ko-item-main { display: grid; min-width: 0; }
+.ko-item-label { overflow-wrap: anywhere; }
+.ko-tags { font-size: 12px; color: var(--muted); }
+.ko-item .pos { color: var(--income); }
+
+.ko-sum { padding: 12px 0 10px; border-top: 2px solid var(--line); }
+.ko-sum-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 15px; font-weight: 600; }
+.ko-free { margin-top: 6px; font-size: 18px; font-weight: 700; color: var(--income); }
+.ko-free .neg { color: var(--expense); }
+
+@media (min-width: 900px) {
+  .ko-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+  .ko-col { gap: 16px; }
+  .ko-nav { max-width: 420px; }
 }

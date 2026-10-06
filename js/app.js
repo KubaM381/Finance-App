@@ -1,5 +1,6 @@
 const VIEWS = {
   dashboard: "Übersicht",
+  konto: "Konto",
   konten: "Konten",
   transaktionen: "Transaktionen",
   vertraege: "Verträge",
@@ -75,3 +76,8 @@ import("./import/importer.js")
 import("./contracts/view.js")
   .then((module) => module.initContracts())
   .catch((error) => console.error("Verträge konnten nicht gestartet werden:", error));
+
+// Reiter „Konto“ (Monatsübersicht) ebenfalls separat laden.
+import("./dashboard/dashboard.js")
+  .then((module) => module.initKonto())
+  .catch((error) => console.error("Konto-Übersicht konnte nicht gestartet werden:", error));

@@ -11,7 +11,7 @@ const state = { tab: "contract", records: [], views: [], suggestions: [], hasTra
 let ui = {};
 
 const PROPS = new Set(["value", "checked", "disabled", "hidden", "textContent"]);
-function el(tag, props = {}, ...children) {
+export function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (key === "class") node.className = value;

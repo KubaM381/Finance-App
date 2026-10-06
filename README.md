@@ -31,4 +31,11 @@ Der Reiter **Verträge** erkennt aus den importierten Transaktionen regelmäßig
 - `js/contracts/contracts.js` – Erkennung, Kostenberechnung, Speicherung (IndexedDB-Store `contracts`, DB-Version 2)
 - `js/contracts/view.js` – Oberfläche des Reiters
 
+## Konto (Monatsübersicht)
+
+Der Reiter **Konto** zeigt pro Monat Einnahmen, Verträge, Anlagen, sonstige Ausgaben und den frei verfügbaren Betrag (`Einnahmen − Verträge − Anlagen − sonstige Ausgaben`). Alles wird live aus den Transaktionen und den bestätigten Verträgen berechnet, es gibt keine zusätzliche Speicherung. Für Monate nach den letzten Buchungen wird eine Prognose angezeigt.
+
+- `js/dashboard/dashboard.js` – Monatsberechnung und Oberfläche
+- `js/contracts/contracts.js` – Erkennung regelmäßiger Einnahmen/Ausgaben, Zuordnung zu Verträgen und Anlagen
+
 Beim Ändern von App-Dateien die Version in `service-worker.js` erhöhen.
