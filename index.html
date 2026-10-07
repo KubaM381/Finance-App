@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/responsive.css">
+<link rel="stylesheet" href="css/extras.css">
 </head>
 <body>
 
@@ -30,6 +31,7 @@
   <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15.5 3.6A9 9 0 0 1 20.4 8.5H15.5z"/></symbol>
   <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></symbol>
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
 </svg>
 
@@ -76,6 +78,7 @@
 
     <div id="import-status" class="notice" role="status" hidden></div>
     <div id="import-panel" hidden></div>
+    <div id="tx-tools" class="tx-tools" hidden></div>
 
     <div id="tx-empty" class="card empty">
       <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></span>
@@ -101,21 +104,18 @@
 
   <section data-view="statistiken" aria-labelledby="t-statistiken" hidden>
     <header class="page-head"><h1 class="page-title" id="t-statistiken" tabindex="-1">Statistiken</h1></header>
-    <div class="card empty">
-      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg></span>
-      <h2>Noch keine Auswertungen</h2>
-      <p>Hier siehst du später, wohin dein Geld fließt.</p>
-    </div>
+    <div id="st-tabs" class="seg" role="tablist" aria-label="Bereich"></div>
+    <div id="st-body"></div>
   </section>
 
   <section data-view="einstellungen" aria-labelledby="t-einstellungen" hidden>
     <header class="page-head"><h1 class="page-title" id="t-einstellungen" tabindex="-1">Einstellungen</h1></header>
+    <div id="se-body" class="se-body"></div>
     <div class="card list-card">
       <div class="row"><span>Darstellung</span><span class="soon">Bald verfügbar</span></div>
-      <div class="row"><span>Sicherheit</span><span class="soon">Bald verfügbar</span></div>
-      <div class="row"><span>Backup</span><span class="soon">Bald verfügbar</span></div>
+      <div class="row"><span>Backup &amp; Export</span><span class="soon">Bald verfügbar</span></div>
     </div>
-    <p class="foot-note">Version 0.1 · Deine Daten bleiben später ausschließlich auf diesem Gerät.</p>
+    <p class="foot-note">Version 0.2 · Deine Daten bleiben später ausschließlich auf diesem Gerät.</p>
   </section>
 
 </main>

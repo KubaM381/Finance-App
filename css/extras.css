@@ -1,0 +1,180 @@
+/* Zusätzliche Styles: Vertrag/Anlage-Farben, Suche/Filter, Statistiken, Budgets, Sparziele, Einstellungen, App-Sperre */
+
+:root {
+  --invest: #2a5fd0;
+  --invest-soft: #e3ebfb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --invest: #8db2ff;
+    --invest-soft: #1c2a4a;
+  }
+}
+
+/* ---------- Vertrag (rot, Wiederholen-Symbol) und Anlage (blau, Trend-Symbol) ---------- */
+
+.kind-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.kind-badge .icon { width: 20px; height: 20px; }
+.stat-head .kind-badge { width: 28px; height: 28px; }
+.stat-head .kind-badge .icon { width: 16px; height: 16px; }
+
+.kind-badge.k-contract { background: var(--expense-soft); color: var(--expense); }
+.kind-badge.k-investment { background: var(--invest-soft); color: var(--invest); }
+
+.chip.k-contract, .chip.k-investment { gap: 6px; }
+.chip.k-contract { background: var(--expense-soft); color: var(--expense); }
+.chip.k-investment { background: var(--invest-soft); color: var(--invest); }
+.chip .icon { width: 14px; height: 14px; stroke-width: 2.4; }
+
+.ct-kind { border-left: 5px solid var(--line); }
+.ct-kind-contract { border-left-color: var(--expense); }
+.ct-kind-investment { border-left-color: var(--invest); }
+.ct-kind-line { margin-bottom: 4px; }
+
+.btn-kind { gap: 8px; color: #fff; }
+.btn-kind .icon { width: 18px; height: 18px; }
+.btn-contract { background: var(--expense); }
+.btn-investment { background: var(--invest); }
+
+@media (prefers-color-scheme: dark) {
+  .btn-kind { color: #0d1512; }
+}
+
+.seg-contract[aria-selected="true"] { background: var(--expense-soft); color: var(--expense); }
+.seg-investment[aria-selected="true"] { background: var(--invest-soft); color: var(--invest); }
+
+.ct-row-contract .amount { color: var(--expense); }
+.ct-row-investment .amount { color: var(--invest); }
+.ct-item .kind-badge { margin-top: 2px; }
+.ct-note { white-space: pre-line; }
+.ct-notice-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; }
+.ct-del { color: var(--expense); }
+
+/* Konto-Seite: Anlagen ebenfalls blau */
+.ko-investment .ko-dot, .ko-investment .ko-fill { background: var(--invest); }
+
+/* ---------- Übersicht ---------- */
+
+.ov-wide { grid-column: 1 / -1; }
+.st-in { color: var(--income); }
+.st-out { color: var(--expense); }
+
+/* ---------- Transaktionen: Suche & Filter ---------- */
+
+.tx-tools { display: grid; gap: 8px; margin-bottom: 12px; }
+
+.tx-tools input[type="search"],
+.tx-tools select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.tx-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tx-click { cursor: pointer; }
+.tx-click:focus-visible { outline-offset: -2px; border-radius: 8px; }
+.tx.is-transfer { opacity: 0.65; }
+.chip-transfer { margin-top: 2px; font-size: 11px; padding: 2px 8px; }
+.tx-edit-row { padding: 0 0 12px; list-style: none; }
+
+@media (min-width: 700px) {
+  .tx-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* ---------- Balken, Budgets, Sparziele ---------- */
+
+.pl-list { margin-top: 4px; }
+.pl-item { display: grid; gap: 6px; padding: 10px 0; }
+.pl-item + .pl-item { border-top: 1px dashed var(--line); }
+.pl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; }
+.pl-form { margin-top: 12px; }
+.pl-ok { color: var(--muted); }
+.pl-warn { color: #b9770e; font-weight: 600; }
+.pl-over { color: var(--expense); font-weight: 600; }
+
+.bar { height: 8px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.bar-fill.b-warn { background: #d69a1f; }
+.bar-fill.b-over { background: var(--expense); }
+.bar-fill.b-goal { background: var(--invest); }
+.bar-fill.b-ok { background: var(--income); }
+
+/* ---------- Statistiken ---------- */
+
+.st-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; }
+.st-summary .card { padding: 14px 12px; }
+.st-summary .card-value { font-size: 17px; }
+
+.st-chart { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; padding: 8px 0 4px; }
+
+.st-col {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.st-col.is-active { background: var(--accent-soft); color: var(--accent); }
+.st-bars { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 90px; }
+.st-bar { display: block; width: 7px; min-height: 2px; border-radius: 3px 3px 0 0; }
+.st-bar.in, .st-key.in { background: var(--income); }
+.st-bar.out, .st-key.out { background: var(--expense); }
+.st-label { font-size: 10px; text-align: center; }
+.st-legend { padding-bottom: 8px; }
+.st-key { display: inline-block; width: 10px; height: 10px; margin-left: 6px; border-radius: 50%; }
+
+/* ---------- Einstellungen ---------- */
+
+.se-body { display: grid; gap: 12px; margin-bottom: 12px; }
+.se-account { display: grid; gap: 8px; padding: 12px 0; }
+.se-account + .se-account { border-top: 1px dashed var(--line); }
+
+/* ---------- App-Sperre ---------- */
+
+html.locked body > *:not(.lock) { visibility: hidden; }
+
+.lock {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.lock-box { display: grid; gap: 12px; width: min(100%, 320px); text-align: center; }
+.lock-box h1 { font-size: 26px; }
+
+.lock-input {
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 24px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.lock-error { min-height: 1.4em; font-size: 14px; color: var(--expense); }

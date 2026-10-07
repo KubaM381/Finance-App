@@ -1,13 +1,15 @@
 // Oberfläche „Verträge“: Vorschläge prüfen, Verträge/Anlagen verwalten, Kosten pro Monat und Jahr.
+// Verträge (rot, Wiederholen-Symbol) und Anlagen (blau, Trend-Symbol) sind überall farblich und per Symbol unterscheidbar.
 // Alles lokal (IndexedDB), keine Netzwerkzugriffe.
 import { listTransactions, formatMoney, formatDate, formatAmountInput, parseAmount, parseDate } from "../transactions/transactions.js";
 import {
   INTERVALS, INTERVAL_LABELS, detectSuggestions, describeContract, createContract, createIgnored,
   listContracts, saveContract, removeContract, totals, todayIso, addMonths
 } from "./contracts.js";
+import { NOTICE_UNITS, priceChange, cancelBy, daysUntil } from "./insights.js";
 
 const TABS = [["contract", "Verträge"], ["investment", "Anlagen"], ["suggestions", "Vorschläge"]];
-const state = { tab: "contract", records: [], views: [], suggestions: [], hasTransactions: false, editing: null, notice: "", confirmDelete: false };
+const state = { tab: "contract", records: [], views: [], suggestions: [], transactions: [], hasTransactions: false, editing: null, notice: "", confirmDelete: false };
 let ui = {};
 
 const PROPS = new Set(["value", "checked", "disabled", "hidden", "textContent"]);
@@ -23,9 +25,23 @@ export function el(tag, props = {}, ...children) {
   return node;
 }
 
+// Symbol aus dem SVG-Sprite in index.html
+export function icon(id) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#${id}`);
+  svg.append(use);
+  return svg;
+}
+
 const money = (cents) => formatMoney(cents);
 const confidenceLabel = (c) => (c >= 0.85 ? "Hohe Sicherheit" : c >= 0.65 ? "Mittlere Sicherheit" : "Geringe Sicherheit");
 const kindLabel = (kind) => (kind === "investment" ? "Anlage" : "Vertrag");
+const kindIcon = (kind) => (kind === "investment" ? "i-trend" : "i-repeat");
+const kindBadge = (kind) => el("span", { class: `kind-badge k-${kind}`, title: kindLabel(kind) }, icon(kindIcon(kind)));
+const kindChip = (kind) => el("span", { class: `chip k-${kind}` }, icon(kindIcon(kind)), el("span", { text: kindLabel(kind) }));
 
 /* ---------- Daten ---------- */
 
@@ -33,6 +49,7 @@ async function refresh() {
   try {
     const [transactions, records] = await Promise.all([listTransactions(), listContracts()]);
     const today = todayIso();
+    state.transactions = transactions;
     state.hasTransactions = transactions.length > 0;
     state.records = records;
     state.views = records.filter((r) => r.status === "active").map((r) => describeContract(r, transactions, { today }));
@@ -61,13 +78,13 @@ async function persist(action, message) {
 function render() {
   const sums = totals(state.views);
   ui.summary.replaceChildren(
-    summaryCard("Vertragskosten pro Monat", sums.contractMonthly, `${money(sums.contractYearly)} pro Jahr · ${sums.contractCount} ${sums.contractCount === 1 ? "Vertrag" : "Verträge"}`, "out"),
-    summaryCard("Anlagen pro Monat", sums.investmentMonthly, `${money(sums.investmentYearly)} pro Jahr · ${sums.investmentCount} ${sums.investmentCount === 1 ? "Anlage" : "Anlagen"}`, "in")
+    summaryCard("contract", "Vertragskosten pro Monat", sums.contractMonthly, `${money(sums.contractYearly)} pro Jahr · ${sums.contractCount} ${sums.contractCount === 1 ? "Vertrag" : "Verträge"}`),
+    summaryCard("investment", "Anlagen pro Monat", sums.investmentMonthly, `${money(sums.investmentYearly)} pro Jahr · ${sums.investmentCount} ${sums.investmentCount === 1 ? "Anlage" : "Anlagen"}`)
   );
 
   const counts = { contract: sums.contractCount, investment: sums.investmentCount, suggestions: state.suggestions.length };
   ui.tabs.replaceChildren(...TABS.map(([id, label]) =>
-    el("button", { type: "button", role: "tab", class: "seg-btn", "data-tab": id, "aria-selected": String(state.tab === id), text: `${label} (${counts[id]})` })));
+    el("button", { type: "button", role: "tab", class: `seg-btn${id === "contract" || id === "investment" ? ` seg-${id}` : ""}`, "data-tab": id, "aria-selected": String(state.tab === id), text: `${label} (${counts[id]})` })));
 
   ui.editor.hidden = !state.editing;
   if (state.editing) ui.editor.replaceChildren(buildEditor(state.editing));
@@ -80,9 +97,9 @@ function render() {
   ui.body.replaceChildren(...content);
 }
 
-function summaryCard(label, monthly, note, direction) {
-  return el("article", { class: "card" },
-    el("p", { class: "card-label", text: label }),
+function summaryCard(kind, label, monthly, note) {
+  return el("article", { class: `card ct-kind ct-kind-${kind}` },
+    el("div", { class: "stat-head" }, kindBadge(kind), el("p", { class: "card-label", text: label })),
     el("p", { class: "card-value num", text: money(monthly) }),
     el("p", { class: "card-note", text: note }));
 }
@@ -107,15 +124,28 @@ function listView(kind) {
 }
 
 function contractRow(v) {
-  const meta = [`${money(v.amount)} · ${INTERVAL_LABELS[v.intervalMonths]}`];
+  const today = todayIso();
   const lines = [
     el("p", { class: "tx-name ct-name", text: v.name }),
-    el("p", { class: "tx-meta", text: meta[0] }),
+    el("p", { class: "tx-meta", text: `${money(v.amount)} · ${INTERVAL_LABELS[v.intervalMonths]}` }),
     el("p", { class: "tx-meta", text: `Nächste Zahlung: ${formatDate(v.nextDate)}` })
   ];
   if (v.varies) lines.push(el("p", { class: "tx-meta", text: `Ø ${money(v.avgAmount)} (schwankt zwischen ${money(v.minAmount)} und ${money(v.maxAmount)})` }));
+  if (v.endDate) lines.push(el("p", { class: "tx-meta", text: `Läuft bis ${formatDate(v.endDate)}` }));
+
+  const by = cancelBy(v);
+  if (by) {
+    const days = daysUntil(by, today);
+    const text = days < 0 ? `Kündigungsfrist abgelaufen am ${formatDate(by)}` : `Kündigen bis ${formatDate(by)} (${days === 0 ? "heute" : `in ${days} ${days === 1 ? "Tag" : "Tagen"}`})`;
+    lines.push(el("p", { class: days <= 30 ? "ct-warn" : "tx-meta", text: text }));
+  }
+  const change = priceChange(v, state.transactions);
+  if (change) lines.push(el("p", { class: "ct-warn", text: `Preiserhöhung seit ${formatDate(change.date)}: ${money(change.from)} → ${money(change.to)} (+${change.percent} %)` }));
+  if (v.note) lines.push(el("p", { class: "tx-meta ct-note", text: v.note }));
   if (v.ended) lines.push(el("p", { class: "ct-warn", text: `Keine Zahlung seit ${formatDate(v.lastPaid)} – eventuell gekündigt?` }));
-  return el("li", { class: "tx ct-item", "data-id": v.id },
+
+  return el("li", { class: `tx ct-item ct-row-${v.kind}`, "data-id": v.id },
+    kindBadge(v.kind),
     el("div", { class: "tx-main" }, ...lines),
     el("div", { class: "ct-side" },
       el("span", { class: "amount num", text: `${money(v.monthly)}/Monat` }),
@@ -125,7 +155,7 @@ function contractRow(v) {
 
 function suggestionsView() {
   const out = [
-    el("p", { class: "card-note ct-hint", text: "Nicht jede regelmäßige Ausgabe ist ein Vertrag. Prüfe die Vorschläge und bestätige, bearbeite oder ignoriere sie." })
+    el("p", { class: "card-note ct-hint", text: "Nicht jede regelmäßige Ausgabe ist ein Vertrag. Prüfe die Vorschläge und bestätige, bearbeite oder ignoriere sie. Rote Karten sind Verträge, blaue Karten Anlagen." })
   ];
   if (!state.suggestions.length) {
     out.push(el("div", { class: "card empty" }, el("h2", { text: "Keine Vorschläge" }),
@@ -150,16 +180,16 @@ function suggestionsView() {
 function suggestionCard(s) {
   const monthly = Math.round((s.varies ? s.avgAmount : s.amount) / s.intervalMonths);
   const yearly = Math.round(((s.varies ? s.avgAmount : s.amount) * 12) / s.intervalMonths);
-  return el("article", { class: "card ct-card", "data-key": s.key },
+  return el("article", { class: `card ct-card ct-kind ct-kind-${s.kind}`, "data-key": s.key },
     el("div", { class: "section-head" },
       el("h2", { class: "ct-name", text: s.name }),
       el("span", { class: "chip", text: confidenceLabel(s.confidence) })),
+    el("div", { class: "ct-kind-line" }, kindChip(s.kind)),
     el("p", { class: "tx-meta", text: `${money(s.amount)} · ${INTERVAL_LABELS[s.intervalMonths]} · ${s.count} Zahlungen, zuletzt ${formatDate(s.lastDate)}` }),
     s.varies ? el("p", { class: "tx-meta", text: `Ø ${money(s.avgAmount)} (schwankt zwischen ${money(s.minAmount)} und ${money(s.maxAmount)})` }) : null,
     el("p", { class: "tx-meta", text: `Nächste Zahlung erwartet: ${formatDate(s.nextDate)} · ≈ ${money(monthly)}/Monat · ${money(yearly)}/Jahr` }),
-    el("p", { class: "tx-meta", text: `Vorschlag: ${kindLabel(s.kind)}` }),
     el("div", { class: "ct-actions" },
-      el("button", { type: "button", class: "btn btn-primary", "data-act": "confirm", text: s.kind === "investment" ? "Als Anlage bestätigen" : "Als Vertrag bestätigen" }),
+      el("button", { type: "button", class: `btn btn-kind btn-${s.kind}`, "data-act": "confirm" }, icon(kindIcon(s.kind)), el("span", { text: s.kind === "investment" ? "Als Anlage bestätigen" : "Als Vertrag bestätigen" })),
       el("button", { type: "button", class: "btn", "data-act": "edit-suggestion", text: "Bearbeiten" }),
       el("button", { type: "button", class: "btn", "data-act": "ignore", text: "Ignorieren" })));
 }
@@ -174,16 +204,23 @@ function buildEditor(editing) {
   const kindSelect = el("select", { id: "ct-kind", "data-f": "kind" },
     el("option", { value: "contract", text: "Vertrag" }), el("option", { value: "investment", text: "Anlage / Investment" }));
   kindSelect.value = draft.kind;
+  const unitSelect = el("select", { id: "ct-unit", "data-f": "noticeUnit", "aria-label": "Einheit der Kündigungsfrist" },
+    ...Object.entries(NOTICE_UNITS).map(([value, text]) => el("option", { value, text })));
+  unitSelect.value = draft.noticeUnit;
   const field = (label, control, id) => el("div", { class: "field" }, el("label", { for: id, text: label }), control);
 
-  return el("div", { class: "card ct-editor" },
+  return el("div", { class: `card ct-editor ct-kind ct-kind-${draft.kind}` },
     el("div", { class: "section-head" }, el("h2", { text: editing.id ? "Eintrag bearbeiten" : editing.suggestion ? "Vorschlag bearbeiten" : "Neuer Eintrag" })),
     el("div", { class: "pv-editor" },
       field("Name", el("input", { type: "text", id: "ct-name", "data-f": "name", value: draft.name, maxlength: "60", autocomplete: "off" }), "ct-name"),
       field("Art", kindSelect, "ct-kind"),
       field("Betrag pro Zahlung (€)", el("input", { type: "text", inputmode: "decimal", id: "ct-amount", "data-f": "amount", value: draft.amount, autocomplete: "off" }), "ct-amount"),
       field("Intervall", intervalSelect, "ct-interval"),
-      field("Nächste Zahlung", el("input", { type: "date", id: "ct-next", "data-f": "nextDate", value: draft.nextDate }), "ct-next")),
+      field("Nächste Zahlung", el("input", { type: "date", id: "ct-next", "data-f": "nextDate", value: draft.nextDate }), "ct-next"),
+      field("Vertragsende (optional)", el("input", { type: "date", id: "ct-end", "data-f": "endDate", value: draft.endDate }), "ct-end"),
+      field("Kündigungsfrist (optional)", el("div", { class: "ct-notice-row" },
+        el("input", { type: "text", inputmode: "numeric", id: "ct-notice", "data-f": "noticeValue", value: draft.noticeValue, maxlength: "3", autocomplete: "off", "aria-label": "Kündigungsfrist" }), unitSelect), "ct-notice"),
+      field("Notiz (optional)", el("textarea", { id: "ct-note", "data-f": "note", rows: "2", maxlength: "300", value: draft.note }), "ct-note")),
     editing.error ? el("p", { class: "ct-warn", text: editing.error }) : null,
     el("div", { class: "ct-actions" },
       el("button", { type: "button", class: "btn btn-primary", "data-act": "save", text: "Speichern" }),
@@ -205,7 +242,11 @@ function startEditing({ record = null, suggestion = null, kind = "contract" } = 
       kind: source?.kind || kind,
       amount: source ? formatAmountInput(source.amount) : "",
       intervalMonths: source?.intervalMonths || 1,
-      nextDate: (record && state.views.find((v) => v.id === record.id)?.nextDate) || source?.nextDate || addMonths(todayIso(), 1)
+      nextDate: (record && state.views.find((v) => v.id === record.id)?.nextDate) || source?.nextDate || addMonths(todayIso(), 1),
+      endDate: record?.endDate || "",
+      noticeValue: record?.noticeValue ? String(record.noticeValue) : "",
+      noticeUnit: record?.noticeUnit || "months",
+      note: record?.note || ""
     }
   };
   render();
@@ -219,7 +260,14 @@ function readEditor() {
   if (!draft.name.trim()) return { error: "Bitte einen Namen eingeben." };
   if (amount == null || amount === 0) return { error: "Bitte einen gültigen Betrag eingeben." };
   if (!nextDate) return { error: "Bitte ein gültiges Datum für die nächste Zahlung angeben." };
-  return { value: { name: draft.name.trim(), kind: draft.kind, amount: Math.abs(amount), intervalMonths: Number(draft.intervalMonths), nextDate } };
+  const endDate = draft.endDate ? parseDate(draft.endDate) : null;
+  if (draft.endDate && !endDate) return { error: "Bitte ein gültiges Vertragsende angeben." };
+  const notice = draft.noticeValue.trim() ? Number(draft.noticeValue.trim()) : null;
+  if (notice != null && !(Number.isInteger(notice) && notice > 0)) return { error: "Die Kündigungsfrist muss eine ganze Zahl größer 0 sein." };
+  return {
+    value: { name: draft.name.trim(), kind: draft.kind, amount: Math.abs(amount), intervalMonths: Number(draft.intervalMonths), nextDate },
+    extras: { endDate, noticeValue: notice, noticeUnit: draft.noticeUnit, note: draft.note.trim() }
+  };
 }
 
 /* ---------- Ereignisse ---------- */
@@ -251,13 +299,16 @@ function onClick(event) {
     if (result.error) { state.editing.error = result.error; render(); return; }
     const { editing } = state;
     const base = editing.record
-      ? { ...editing.record, ...result.value }
-      : createContract({
-          ...result.value,
-          groupKey: editing.suggestion?.groupKey ?? null,
-          bucket: editing.suggestion?.bucket ?? null,
-          source: editing.suggestion ? "detected" : "manual"
-        });
+      ? { ...editing.record, ...result.value, ...result.extras }
+      : {
+          ...createContract({
+            ...result.value,
+            groupKey: editing.suggestion?.groupKey ?? null,
+            bucket: editing.suggestion?.bucket ?? null,
+            source: editing.suggestion ? "detected" : "manual"
+          }),
+          ...result.extras
+        };
     state.tab = result.value.kind;
     persist(() => saveContract(base), `„${result.value.name}“ wurde gespeichert.`);
   } else if (act === "delete") {
@@ -274,6 +325,8 @@ function onInput(event) {
   const field = event.target.dataset?.f;
   if (!field || !state.editing) return;
   state.editing.draft[field] = event.target.value;
+  // Farbe des Editors passt sich sofort an die gewählte Art an
+  if (field === "kind") ui.editor.firstElementChild?.setAttribute("class", `card ct-editor ct-kind ct-kind-${event.target.value}`);
 }
 
 /* ---------- Start ---------- */

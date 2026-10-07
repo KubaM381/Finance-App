@@ -4,15 +4,16 @@ import { parseCsvFile } from "./csv.js";
 import { parsePdfFile } from "./pdf.js";
 import {
   ImportError, formatMoney, formatDate, formatAmountInput, parseAmount, validateDraft, applyDefaultInclude,
-  markDuplicates, toRecord, listTransactions, saveImport, undoImport, compareByDateDesc
+  markDuplicates, toRecord, listAllTransactions, saveImport, undoImport
 } from "../transactions/transactions.js";
+import { loadRules } from "../transactions/rules.js";
+import { refreshTxList } from "../transactions/list.js";
 import { CATEGORY_NAMES } from "../transactions/categories.js";
 import { listAccounts, createAccount, matchAccountByIban, maskIban, suggestAccountName } from "../accounts/accounts.js";
 import { newId } from "../db/database.js";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const NEW_ACCOUNT = "__new__";
-const LIST_LIMIT = 200;
 const SHARE_CACHE = "finance-share-inbox";
 
 const state = {
@@ -94,7 +95,7 @@ const byDateDesc = (a, b) => (a.date ? 1 : 0) - (b.date ? 1 : 0) || (b.date || "
 async function openNextGroup() {
   const group = state.queue.shift();
   if (!group) return false;
-  [state.accounts, state.existing] = await Promise.all([listAccounts(), listTransactions()]);
+  [state.accounts, state.existing] = await Promise.all([listAccounts(), listAllTransactions()]);
 
   const drafts = [], warnings = [];
   for (const { file, result } of group) {
@@ -129,6 +130,7 @@ async function handleFiles(fileList) {
   const files = [...fileList]; // sofort kopieren, die Liste wird unten geleert
   if (!files.length) return;
   hideStatus();
+  await loadRules(); // eigene Kategorie-Regeln vor dem Einlesen laden
   ui.label.classList.add("is-busy");
   showStatus(files.length > 1 ? `${files.length} Dateien werden lokal auf diesem Gerät gelesen …` : "Datei wird lokal auf diesem Gerät gelesen …");
   try {
@@ -457,23 +459,8 @@ function closePanel() {
 
 /* ---------- Gespeicherte Transaktionen ---------- */
 
-async function refreshList() {
-  const [transactions, accounts] = await Promise.all([listTransactions(), listAccounts()]);
-  const names = new Map(accounts.map((a) => [a.id, a.name]));
-  transactions.sort(compareByDateDesc);
-  const hasData = transactions.length > 0;
-  ui.empty.hidden = hasData || !ui.panel.hidden;
-  ui.listCard.hidden = !hasData || !ui.panel.hidden;
-  ui.txList.replaceChildren(...transactions.slice(0, LIST_LIMIT).map((t) => {
-    const meta = [t.category, formatDate(t.date), accounts.length > 1 ? names.get(t.accountId) : null].filter(Boolean).join(" · ");
-    return el("li", { class: "tx" },
-      el("span", { class: "avatar", "aria-hidden": "true", text: (t.payee || t.purpose || "?").trim().charAt(0).toUpperCase() || "?" }),
-      el("div", { class: "tx-main" }, el("p", { class: "tx-name", text: t.payee || t.purpose || "(ohne Text)" }), el("p", { class: "tx-meta", text: meta })),
-      el("span", { class: `amount num${t.amount > 0 ? " pos" : ""}`, text: formatMoney(t.amount, t.currency, { sign: true }) }));
-  }));
-  ui.more.hidden = transactions.length <= LIST_LIMIT || !ui.panel.hidden;
-  ui.more.textContent = `Es werden die neuesten ${LIST_LIMIT} von ${transactions.length} Transaktionen angezeigt.`;
-}
+// Liste, Suche/Filter und Bearbeiten übernimmt js/transactions/list.js.
+const refreshList = () => refreshTxList(ui, !ui.panel.hidden);
 
 /* ---------- Start ---------- */
 
@@ -496,6 +483,6 @@ export function initImport() {
   ui.panel.addEventListener("input", (event) => { if (event.target.dataset?.act === "account-name") onPanelChange(event); else onField(event); });
   ui.status.addEventListener("click", onAction);
 
-  refreshList().catch((error) => showStatus(`Lokale Datenbank nicht verfügbar: ${error?.message || error}`, "error"));
+  loadRules().then(refreshList).catch((error) => showStatus(`Lokale Datenbank nicht verfügbar: ${error?.message || error}`, "error"));
   takeSharedFiles();
 }

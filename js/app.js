@@ -1,3 +1,6 @@
+// App-Sperre: Inhalte sofort verbergen, bevor das Sperrmodul geladen ist (verhindert kurzes Aufblitzen).
+try { if (localStorage.getItem("finance-lock-pin")) document.documentElement.classList.add("locked"); } catch { /* optional */ }
+
 const VIEWS = {
   dashboard: "Übersicht",
   konto: "Konto",
@@ -85,3 +88,21 @@ import("./dashboard/dashboard.js")
 import("./dashboard/overview.js")
   .then((module) => module.initOverview())
   .catch((error) => console.error("Übersicht konnte nicht gestartet werden:", error));
+
+// Statistiken (Auswertung, Budgets, Sparziele)
+import("./stats/stats.js")
+  .then((module) => module.initStats())
+  .catch((error) => console.error("Statistiken konnten nicht gestartet werden:", error));
+
+// Einstellungen (Kontostände, Sperre, Kategorie-Regeln)
+import("./settings/settings.js")
+  .then((module) => module.initSettings())
+  .catch((error) => console.error("Einstellungen konnten nicht gestartet werden:", error));
+
+// App-Sperre
+import("./security/security.js")
+  .then((module) => module.initSecurity())
+  .catch((error) => {
+    console.error("App-Sperre konnte nicht gestartet werden:", error);
+    document.documentElement.classList.remove("locked");
+  });

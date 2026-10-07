@@ -5,8 +5,10 @@
 //     payee, purpose, category, currency, key (Duplikat-Schlüssel), batchId, source: "csv"|"pdf", importedAt }
 import { getAll, putBatch, deleteByIndex, deleteRecord, newId } from "../db/database.js";
 import { categorize, normalizeText } from "./categories.js";
+import { ruleCategory } from "./rules.js";
+import { findTransfers, isTransfer } from "./transfers.js";
 
-export { normalizeText };
+export { normalizeText, findTransfers, isTransfer };
 
 export class ImportError extends Error {}
 
@@ -138,7 +140,7 @@ export function validateDraft(d) {
   d.issues = issues;
   d.status = issues.some((i) => i.level === "error") ? "error" : issues.length ? "warn" : "ok";
   d.type = d.amount == null ? null : d.amount >= 0 ? "income" : "expense";
-  if (d.categoryAuto) d.category = categorize(`${d.payee} ${d.purpose}`, d.type);
+  if (d.categoryAuto) d.category = ruleCategory(d.payee, d.purpose, d.type) || categorize(`${d.payee} ${d.purpose}`, d.type);
   return d;
 }
 
@@ -185,7 +187,15 @@ export const toRecord = (d, accountId, batchId, source, importedAt) => ({
   importedAt
 });
 
-export const listTransactions = () => getAll("transactions");
+// Alle gespeicherten Buchungen (inkl. Umbuchungen) – für Import, Duplikatprüfung, Kontostände und die Liste.
+export const listAllTransactions = () => getAll("transactions");
+
+// Buchungen ohne Umbuchungen zwischen eigenen Konten – Grundlage für Einnahmen, Ausgaben, Verträge, Statistiken.
+export async function listTransactions() {
+  const all = await listAllTransactions();
+  const auto = findTransfers(all);
+  return all.filter((t) => !isTransfer(t, auto));
+}
 
 export const saveImport = ({ accounts = [], transactions }) => putBatch({ accounts, transactions });
 
