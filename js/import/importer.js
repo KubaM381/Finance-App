@@ -6,11 +6,12 @@ import {
   ImportError, formatMoney, formatDate, formatAmountInput, parseAmount, validateDraft, applyDefaultInclude,
   markDuplicates, toRecord, listAllTransactions, saveImport, undoImport
 } from "../transactions/transactions.js";
-import { loadRules } from "../transactions/rules.js";
+import { loadRules, recategorizeStored } from "../transactions/rules.js";
+import { readBalance } from "./balance.js";
 import { refreshTxList } from "../transactions/list.js";
 import { CATEGORY_NAMES } from "../transactions/categories.js";
 import { listAccounts, createAccount, matchAccountByIban, maskIban, suggestAccountName } from "../accounts/accounts.js";
-import { newId } from "../db/database.js";
+import { newId, putBatch } from "../db/database.js";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const NEW_ACCOUNT = "__new__";
@@ -18,7 +19,7 @@ const SHARE_CACHE = "finance-share-inbox";
 
 const state = {
   drafts: [], meta: null, warnings: [], fileName: "", accounts: [], existing: [], queue: [],
-  accountChoice: NEW_ACCOUNT, newAccountName: "", onlyIssues: false, saving: false, lastImport: null
+  accountChoice: NEW_ACCOUNT, newAccountName: "", balanceText: "", balanceDate: "", balanceFound: false, onlyIssues: false, saving: false, lastImport: null
 };
 let ui = {};
 
@@ -69,6 +70,8 @@ async function parseOne(file) {
   const kind = await detectKind(file);
   const result = kind === "pdf" ? await parsePdfFile(file) : await parseCsvFile(file);
   if (!result.drafts.length) throw new ImportError("Es wurden keine Buchungen erkannt.");
+  // Kontostand aus dem Auszug lesen (optional – Fehler dabei dürfen den Import nicht stoppen)
+  result.meta.balance = await readBalance(file, kind, result.drafts).catch(() => null);
   return result;
 }
 
@@ -114,6 +117,11 @@ async function openNextGroup() {
     currency: currencies.size === 1 ? metas[0].currency : "EUR",
     label: [...new Set(metas.map((m) => `${m.format.toUpperCase()} · ${m.profile}`))].join(" + ")
   };
+
+  const balance = metas.map((m) => m.balance).filter(Boolean).sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0] || null;
+  state.balanceFound = Boolean(balance);
+  state.balanceText = balance ? formatAmountInput(balance.cents) : "";
+  state.balanceDate = balance?.date || "";
 
   Object.assign(state, { drafts, meta, warnings, fileName: group.map((g) => g.file.name).join(", "), onlyIssues: false });
 
@@ -202,6 +210,8 @@ function renderPanel() {
     type: "text", id: "pv-account-name", "data-act": "account-name", value: state.newAccountName,
     placeholder: "Name des neuen Kontos", "aria-label": "Name des neuen Kontos", maxlength: "60", hidden: state.accountChoice !== NEW_ACCOUNT
   });
+  ui.balance = el("input", { type: "text", inputmode: "decimal", id: "pv-balance", "data-act": "balance", value: state.balanceText, placeholder: "z. B. 1.234,56", autocomplete: "off" });
+  ui.balanceDate = el("input", { type: "date", id: "pv-balance-date", "data-act": "balance-date", value: state.balanceDate });
   ui.summary = el("p", { class: "card-note" });
   ui.chips = el("div", { class: "pv-chips" });
   ui.list = el("ul", { class: "tx-list pv-list" });
@@ -218,6 +228,10 @@ function renderPanel() {
       ...state.warnings.map((w) => el("p", { class: "pv-warning", text: w })),
       el("div", { class: "field" }, el("label", { for: "pv-account", text: "Konto" }), accountSelect, ui.accountName,
         meta.iban ? el("p", { class: "card-note", text: `Erkannte IBAN: ${maskIban(meta.iban)}` }) : null),
+      el("div", { class: "pv-editor pv-balance" },
+        el("div", { class: "field" }, el("label", { for: "pv-balance", text: "Kontostand laut Auszug (€, optional)" }), ui.balance),
+        el("div", { class: "field" }, el("label", { for: "pv-balance-date", text: "Stand am" }), ui.balanceDate)),
+      el("p", { class: "card-note", text: state.balanceFound ? "Kontostand aus dem Auszug gelesen – bitte kurz prüfen. Er fließt in die Gesamtsumme der Übersicht ein." : "Im Auszug wurde kein Kontostand gefunden. Du kannst ihn hier optional eintragen, damit die Gesamtsumme stimmt." }),
       el("div", { class: "pv-tools" },
         el("button", { type: "button", class: "btn", "data-act": "invert", text: "Vorzeichen umkehren" }),
         el("label", { class: "pv-filter", for: "pv-filter" }, filter, el("span", { text: "Nur Zeilen mit Hinweis" }))),
@@ -399,6 +413,10 @@ function onPanelChange(event) {
     refreshRows();
   } else if (act === "account-name") {
     state.newAccountName = event.target.value;
+  } else if (act === "balance") {
+    state.balanceText = event.target.value;
+  } else if (act === "balance-date") {
+    state.balanceDate = event.target.value;
   } else if (act === "filter") {
     state.onlyIssues = event.target.checked;
     refreshRows();
@@ -419,14 +437,25 @@ async function runImport() {
       newAccount = createAccount({ name: state.newAccountName || suggestAccountName(state.meta.iban), iban: state.meta.iban, currency: state.meta.currency });
       accountId = newAccount.id;
     }
+    // Kontostand übernehmen: bei neuem Konto direkt, bei bestehendem nur wenn der Stand nicht älter ist als der gespeicherte
+    const cents = state.balanceText.trim() ? parseAmount(state.balanceText) : null;
+    const existing = state.accounts.find((a) => a.id === accountId);
+    let accountUpdate = null, restore = null;
+    if (cents != null && state.balanceDate) {
+      if (newAccount) Object.assign(newAccount, { startBalance: cents, balanceDate: state.balanceDate });
+      else if (existing && (!existing.balanceDate || state.balanceDate >= existing.balanceDate)) {
+        restore = { ...existing };
+        accountUpdate = { ...existing, startBalance: cents, balanceDate: state.balanceDate };
+      }
+    }
     const batchId = newId();
     const importedAt = new Date().toISOString();
     const records = selected.map((d) => toRecord(d, accountId, batchId, d.source || state.meta.format, importedAt));
-    await saveImport({ accounts: newAccount ? [newAccount] : [], transactions: records });
+    await saveImport({ accounts: [newAccount, accountUpdate].filter(Boolean), transactions: records });
     navigator.storage?.persist?.().catch(() => {});
 
     const skipped = state.drafts.length - records.length;
-    state.lastImport = { batchId, newAccountId: newAccount?.id || null };
+    state.lastImport = { batchId, newAccountId: newAccount?.id || null, restore };
     closePanel();
     await refreshList();
     const more = await openNextGroup(); // weitere Konten aus derselben Auswahl nacheinander prüfen
@@ -442,6 +471,7 @@ async function runUndo() {
   if (!state.lastImport) return;
   try {
     await undoImport(state.lastImport.batchId, state.lastImport.newAccountId);
+    if (state.lastImport.restore) await putBatch({ accounts: [state.lastImport.restore] }); // alten Kontostand wiederherstellen
     state.lastImport = null;
     await refreshList();
     showStatus("Der letzte Import wurde rückgängig gemacht.");
@@ -480,9 +510,9 @@ export function initImport() {
   ui.input.addEventListener("change", () => ui.input.files?.length && handleFiles(ui.input.files));
   ui.panel.addEventListener("click", onAction);
   ui.panel.addEventListener("change", onPanelChange);
-  ui.panel.addEventListener("input", (event) => { if (event.target.dataset?.act === "account-name") onPanelChange(event); else onField(event); });
+  ui.panel.addEventListener("input", (event) => { if (["account-name", "balance", "balance-date"].includes(event.target.dataset?.act)) onPanelChange(event); else onField(event); });
   ui.status.addEventListener("click", onAction);
 
-  loadRules().then(refreshList).catch((error) => showStatus(`Lokale Datenbank nicht verfügbar: ${error?.message || error}`, "error"));
+  loadRules().then(recategorizeStored).then(refreshList).catch((error) => showStatus(`Lokale Datenbank nicht verfügbar: ${error?.message || error}`, "error"));
   takeSharedFiles();
 }

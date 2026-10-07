@@ -6,7 +6,7 @@ import { listAccounts, maskIban } from "../accounts/accounts.js";
 import { accountBalance, totalBalance, hasBalance } from "../accounts/balances.js";
 import { listContracts, describeContract, detectRecurringIncome, addMonths, todayIso } from "../contracts/contracts.js";
 import { cancelBy, daysUntil } from "../contracts/insights.js";
-import { listBudgets, budgetStatus } from "../planning/planning.js";
+import { listBudgets, budgetStatus, listGoals, goalInfo, bar } from "../planning/planning.js";
 import { el, icon } from "../contracts/view.js";
 
 let body = null;
@@ -35,7 +35,7 @@ function listCard(title, rows) {
 }
 
 async function render() {
-  const [all, real, accounts, records, budgets] = await Promise.all([listAllTransactions(), listTransactions(), listAccounts(), listContracts(), listBudgets()]);
+  const [all, real, accounts, records, budgets, goals] = await Promise.all([listAllTransactions(), listTransactions(), listAccounts(), listContracts(), listBudgets(), listGoals()]);
   if (!all.length) {
     body.replaceChildren(el("div", { class: "card empty" }, el("h2", { text: "Noch keine Daten" }),
       el("p", { text: "Importiere einen Kontoauszug unter „Transaktionen“, dann erscheint hier deine Übersicht." }),
@@ -52,7 +52,23 @@ async function render() {
     el("p", { class: "card-label", text: "Gesamtsumme aller Konten" }),
     el("p", { class: "hero-value num", text: formatMoney(total) }),
     el("p", { class: "hero-delta num", text: plural(accounts.length, "Konto", "Konten") }),
-    missing ? el("p", { class: "ko-hero-note", text: `Für ${plural(missing, "Konto", "Konten")} fehlt der Kontostand – bis dahin zählen nur importierte Buchungen. Eintragen unter Einstellungen.` }) : null));
+    missing ? el("p", { class: "ko-hero-note", text: `Für ${plural(missing, "Konto", "Konten")} wurde noch kein Kontostand gelesen – bis dahin zählen nur importierte Buchungen. Beim Import eines Auszugs kannst du ihn eintragen.` }) : null));
+
+  // 1b. Sparziele (direkt unter der Gesamtsumme)
+  cards.push(goals.length
+    ? el("article", { class: "card ko-card ov-wide" },
+        el("div", { class: "section-head" }, el("h2", { class: "ko-h", text: "Sparziele" }), el("a", { class: "link", href: "#statistiken", text: "Verwalten" })),
+        el("ul", { class: "ko-items pl-list" }, ...goals.map((g) => {
+          const { ratio, note } = goalInfo(g, today);
+          return el("li", { class: "pl-item" },
+            el("div", { class: "pl-head" }, el("span", { class: "ko-item-label", text: g.name }), el("span", { class: "num", text: `${formatMoney(g.saved)} von ${formatMoney(g.target)}` })),
+            bar(Math.min(1, ratio), ratio >= 1 ? "ok" : "goal"),
+            el("span", { class: "card-note", text: `${Math.min(100, Math.round(ratio * 100))} % · ${note}` }));
+        })))
+    : el("article", { class: "card ov-wide" },
+        el("p", { class: "card-label", text: "Sparziele" }),
+        el("p", { class: "card-note", text: "Noch kein Sparziel angelegt – mit Betrag und Datum rechnet die App den monatlichen Bedarf aus." }),
+        el("a", { class: "link", href: "#statistiken", text: "Sparziel anlegen" })));
 
   // 2. Kennzahlen des neuesten Monats (ohne Umbuchungen) und Budget-Warnungen
   const sorted = [...real].sort(compareByDateDesc);

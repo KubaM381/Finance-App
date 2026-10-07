@@ -1,10 +1,5 @@
-// Einstellungen: Kontostände (für die Gesamtsumme), App-Sperre und eigene Kategorie-Regeln.
-import { listAccounts, maskIban } from "../accounts/accounts.js";
-import { accountBalance, hasBalance } from "../accounts/balances.js";
-import { listAllTransactions, formatMoney, formatAmountInput, parseAmount } from "../transactions/transactions.js";
+// Einstellungen: App-Sperre und eigene Kategorie-Regeln. (Kontostände werden beim Import aus dem Auszug gelesen.)
 import { loadRules, listRules, removeRule } from "../transactions/rules.js";
-import { putBatch } from "../db/database.js";
-import { todayIso } from "../contracts/contracts.js";
 import { el } from "../contracts/view.js";
 import * as security from "../security/security.js";
 
@@ -13,36 +8,6 @@ const state = { message: "", error: "" };
 
 const field = (label, control, id) => el("div", { class: "field" }, el("label", { for: id, text: label }), control);
 const say = (message, error = "") => { state.message = message; state.error = error; render(); };
-
-/* ---------- Konten ---------- */
-
-async function accountsCard() {
-  const [accounts, transactions] = await Promise.all([listAccounts(), listAllTransactions()]);
-  if (!accounts.length) {
-    return el("div", { class: "card ko-card" }, el("h2", { class: "ko-h", text: "Konten" }),
-      el("p", { class: "card-note", text: "Konten entstehen beim Import eines Kontoauszugs. Danach kannst du hier den aktuellen Kontostand eintragen." }));
-  }
-  const rows = accounts.map((account) => {
-    const balance = el("input", { type: "text", inputmode: "decimal", id: `bal-${account.id}`, value: hasBalance(account) ? formatAmountInput(account.startBalance) : "", placeholder: "z. B. 1.234,56", autocomplete: "off" });
-    const date = el("input", { type: "date", id: `bd-${account.id}`, value: account.balanceDate || todayIso() });
-    const save = el("button", { type: "button", class: "btn", text: "Speichern" });
-    save.addEventListener("click", async () => {
-      const cents = parseAmount(balance.value);
-      if (cents == null || !date.value) return say("", "Bitte Kontostand und Datum angeben.");
-      await putBatch({ accounts: [{ ...account, startBalance: cents, balanceDate: date.value }] });
-      say(`Kontostand für „${account.name}“ gespeichert.`);
-    });
-    return el("li", { class: "se-account" },
-      el("div", { class: "pl-head" },
-        el("span", { class: "ko-item-label", text: `${account.name}${account.iban ? ` (${maskIban(account.iban)})` : ""}` }),
-        el("span", { class: "num", text: formatMoney(accountBalance(account, transactions)) })),
-      el("div", { class: "pv-editor" }, field("Kontostand (€)", balance, `bal-${account.id}`), field("am Datum", date, `bd-${account.id}`)),
-      el("div", { class: "ct-actions" }, save));
-  });
-  return el("div", { class: "card ko-card" }, el("h2", { class: "ko-h", text: "Konten & Kontostand" }),
-    el("p", { class: "card-note", text: "Trage den Kontostand zu einem Datum ein. Buchungen danach werden automatisch dazugerechnet; daraus ergibt sich die Gesamtsumme in der Übersicht." }),
-    el("ul", { class: "ko-items" }, ...rows));
-}
 
 /* ---------- Sicherheit ---------- */
 
@@ -110,7 +75,7 @@ async function render() {
     root.replaceChildren(
       state.message ? el("div", { class: "notice" }, el("span", { text: state.message })) : null,
       state.error ? el("div", { class: "notice error" }, el("span", { text: state.error })) : null,
-      await accountsCard(), await securityCard(), rulesCard());
+      await securityCard(), rulesCard());
   } catch (error) {
     root.replaceChildren(el("div", { class: "notice error", text: `Einstellungen konnten nicht geladen werden: ${error?.message || error}` }));
   }

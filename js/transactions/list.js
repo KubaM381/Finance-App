@@ -4,8 +4,8 @@ import {
   listAllTransactions, findTransfers, isTransfer, formatMoney, formatDate, compareByDateDesc, normalizeText
 } from "./transactions.js";
 import { partnerOf } from "./transfers.js";
-import { CATEGORY_NAMES } from "./categories.js";
-import { saveRule, ruleKey } from "./rules.js";
+import { FALLBACK, isFallbackCategory, categoriesFor } from "./categories.js";
+import { saveRule, ruleKey, rebuildLearned } from "./rules.js";
 import { listAccounts } from "../accounts/accounts.js";
 import { putBatch } from "../db/database.js";
 import { el } from "../contracts/view.js";
@@ -14,7 +14,8 @@ const LIST_LIMIT = 200;
 const filters = { q: "", month: "", category: "", type: "", account: "" };
 let data = { all: [], accounts: [], auto: new Set() };
 let ctx = null;
-let tools = null, summary = null, selects = {};
+let tools = null, summary = null, cleanup = null, selects = {};
+let cleanupOpen = false;
 let editing = null;
 
 const monthLabel = (ym) =>
@@ -50,7 +51,8 @@ function buildTools() {
     return node;
   };
   summary = el("p", { class: "card-note" });
-  tools.append(search, el("div", { class: "tx-filters" }, select("month", "Monat"), select("category", "Kategorie"), select("type", "Art"), select("account", "Konto")), summary);
+  cleanup = el("div", { class: "tx-cleanup" });
+  tools.append(cleanup, search, el("div", { class: "tx-filters" }, select("month", "Monat"), select("category", "Kategorie"), select("type", "Art"), select("account", "Konto")), summary);
 
   ctx.ui.txList.addEventListener("click", onClick);
 }
@@ -63,7 +65,7 @@ function fillTools() {
     node.value = filters[key];
   };
   const months = [...new Set(data.all.map((t) => t.date.slice(0, 7)))].sort().reverse();
-  const categories = [...new Set([...CATEGORY_NAMES, ...data.all.map((t) => t.category)])].sort((a, b) => a.localeCompare(b, "de"));
+  const categories = [...new Set(data.all.map((t) => t.category))].sort((a, b) => a.localeCompare(b, "de"));
   set("month", [["", "Alle Monate"], ...months.map((m) => [m, monthLabel(m)])]);
   set("category", [["", "Alle Kategorien"], ...categories.map((c) => [c, c])]);
   set("type", [["", "Alle Arten"], ["income", "Einnahmen"], ["expense", "Ausgaben"], ["transfer", "Umbuchungen"]]);
@@ -87,9 +89,11 @@ function row(t, multiAccount) {
 }
 
 function editor(t) {
+  const type = t.amount >= 0 ? "income" : "expense";
+  const options = [...new Set([...categoriesFor(type), FALLBACK[type], t.category])];
   const category = el("select", { "data-f": "category", id: "tx-cat", "aria-label": "Kategorie" },
-    ...CATEGORY_NAMES.map((name) => el("option", { value: name, text: name })));
-  category.value = CATEGORY_NAMES.includes(t.category) ? t.category : CATEGORY_NAMES[0];
+    ...options.map((name) => el("option", { value: name, text: name })));
+  category.value = t.category;
   const canRemember = Boolean(ruleKey(t.payee, t.purpose));
   const check = (field, label, checked, disabled = false) =>
     el("label", { class: "pv-filter" }, el("input", { type: "checkbox", "data-f": field, checked, disabled }), el("span", { text: label }));
@@ -123,6 +127,60 @@ function render() {
   if (!rows.length && data.all.length) ui.txList.append(el("li", { class: "tx" }, el("p", { class: "card-note", text: "Keine Buchung passt zu Suche und Filtern." })));
 }
 
+/* ---------- Aufräumen: Buchungen ohne Kategorie ---------- */
+
+// Gruppiert alle Buchungen in "Sonstiges" nach Empfänger, damit eine Auswahl gleich viele Buchungen erledigt.
+function fallbackGroups() {
+  const map = new Map();
+  for (const t of data.all) {
+    if (!isFallbackCategory(t.category) || t.categoryManual || isTransfer(t, data.auto)) continue;
+    const key = ruleKey(t.payee, t.purpose);
+    if (!key) continue;
+    const type = t.amount >= 0 ? "income" : "expense";
+    const group = map.get(`${type}|${key}`) || { type, items: [], sum: 0, label: t.payee || t.purpose };
+    group.items.push(t);
+    group.sum += t.amount;
+    map.set(`${type}|${key}`, group);
+  }
+  return [...map.values()].sort((a, b) => b.items.length - a.items.length || Math.abs(b.sum) - Math.abs(a.sum));
+}
+
+async function assignGroup(group, category) {
+  const sample = group.items[0];
+  try {
+    await saveRule(sample.payee, sample.purpose, group.type, category);
+    await putBatch({ transactions: group.items.map((x) => ({ ...x, category, categoryManual: true })) });
+  } catch (error) {
+    summary.textContent = `Speichern fehlgeschlagen: ${error?.message || error}`;
+    return;
+  }
+  await refreshTxList(ctx.ui, ctx.panelOpen);
+}
+
+function renderCleanup() {
+  const groups = fallbackGroups();
+  if (!groups.length) { cleanup.replaceChildren(); return; }
+  const total = groups.reduce((s, g) => s + g.items.length, 0);
+  const rows = groups.slice(0, 10).map((group) => {
+    const select = el("select", { "aria-label": `Kategorie für ${group.label}` },
+      el("option", { value: "", text: "Kategorie wählen …" }),
+      ...categoriesFor(group.type).map((name) => el("option", { value: name, text: name })));
+    select.addEventListener("change", () => select.value && assignGroup(group, select.value));
+    return el("li", { class: "pl-item" },
+      el("div", { class: "pl-head" }, el("span", { class: "ko-item-label", text: group.label }), el("span", { class: "num", text: formatMoney(group.sum, "EUR", { sign: true }) })),
+      el("p", { class: "card-note", text: `${group.items.length} ${group.items.length === 1 ? "Buchung" : "Buchungen"}` }),
+      select);
+  });
+  const details = el("details", { class: "card ko-card" },
+    el("summary", { class: "cleanup-summary", text: `${total} ${total === 1 ? "Buchung" : "Buchungen"} ohne Kategorie – jetzt zuordnen` }),
+    el("p", { class: "card-note", text: "Eine Auswahl gilt für alle Buchungen dieses Empfängers und wird für künftige Importe gemerkt." }),
+    el("ul", { class: "ko-items pl-list" }, ...rows),
+    groups.length > 10 ? el("p", { class: "card-note", text: `… und ${groups.length - 10} weitere Empfänger` }) : null);
+  details.open = cleanupOpen;
+  details.addEventListener("toggle", () => { cleanupOpen = details.open; });
+  cleanup.replaceChildren(details);
+}
+
 /* ---------- Bearbeiten ---------- */
 
 function onClick(event) {
@@ -149,7 +207,9 @@ async function saveEdit(id) {
   const updates = new Map();
   const touch = (x) => { if (!updates.has(x.id)) updates.set(x.id, { ...x }); return updates.get(x.id); };
   const targets = remember && key ? data.all.filter((x) => x.amount >= 0 === income && ruleKey(x.payee, x.purpose) === key) : [t];
-  for (const x of targets) if (x.category !== category) touch(x).category = category;
+  for (const x of targets) {
+    if (x.category !== category || !x.categoryManual) { const u = touch(x); u.category = category; u.categoryManual = true; }
+  }
   if (transfer !== isTransfer(t, data.auto)) {
     touch(t).transfer = transfer;
     const partner = partnerOf(t, data.all);
@@ -176,6 +236,8 @@ export async function refreshTxList(ui, panelOpen) {
   ui.listCard.hidden = !hasData || panelOpen;
   if (tools) tools.hidden = !hasData || panelOpen;
   if (!tools) { ui.txList.replaceChildren(); return; }
+  rebuildLearned(all);
   fillTools();
+  renderCleanup();
   render();
 }

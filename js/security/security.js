@@ -117,7 +117,7 @@ function showLock() {
   overlay = h("div", { class: "lock", role: "dialog", "aria-modal": "true", "aria-label": "App gesperrt" },
     h("div", { class: "lock-box" }, h("h1", { text: "Finance App" }), h("p", { class: "card-note", text: "Gesperrt – bitte PIN eingeben." }), input, error, submit, bio));
   document.body.append(overlay);
-  input.focus();
+  if (matchMedia("(hover: hover) and (pointer: fine)").matches) input.focus(); // am Handy keine Tastatur erzwingen (Layout bleibt ruhig)
 }
 
 export function initSecurity() {

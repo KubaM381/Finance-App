@@ -29,7 +29,7 @@ const level = (ratio) => (ratio >= 1 ? "over" : ratio >= 0.8 ? "warn" : "ok");
 const field = (label, control, id) => el("div", { class: "field" }, el("label", { for: id, text: label }), control);
 const monthLabel = (ym) => new Date(`${ym}-01T00:00:00Z`).toLocaleDateString("de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
 
-function bar(ratio, kind) {
+export function bar(ratio, kind) {
   const fill = el("span", { class: `bar-fill b-${kind}` });
   fill.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
   return el("div", { class: "bar", role: "img", "aria-label": `${Math.round(ratio * 100)} Prozent` }, fill);
@@ -88,6 +88,18 @@ export async function renderBudgets(container, { transactions, ym }, reload) {
 
 /* ---------- Sparziele ---------- */
 
+// Fortschritt und Hinweistext eines Sparziels (auch für die Übersicht).
+export function goalInfo(g, today = todayIso()) {
+  const ratio = g.target ? g.saved / g.target : 0;
+  const rest = Math.max(0, g.target - g.saved);
+  let note = rest ? `Noch ${formatMoney(rest)}` : "Ziel erreicht 🎉";
+  if (rest && g.targetDate) {
+    const months = Math.max(1, Math.ceil(monthsBetween(today, g.targetDate)));
+    note += g.targetDate < today ? ` · Zieldatum ${formatDate(g.targetDate)} überschritten` : ` · ca. ${formatMoney(Math.ceil(rest / months))} pro Monat bis ${formatDate(g.targetDate)}`;
+  }
+  return { ratio, rest, note };
+}
+
 export async function renderGoals(container, _data, reload) {
   const goals = await listGoals();
   const today = todayIso();
@@ -123,13 +135,7 @@ export async function renderGoals(container, _data, reload) {
 
   const list = goals.length
     ? el("div", { class: "ct-cards" }, ...goals.map((g) => {
-        const ratio = g.target ? g.saved / g.target : 0;
-        const rest = Math.max(0, g.target - g.saved);
-        let note = rest ? `Noch ${formatMoney(rest)}` : "Ziel erreicht 🎉";
-        if (rest && g.targetDate) {
-          const months = Math.max(1, Math.ceil(monthsBetween(today, g.targetDate)));
-          note += g.targetDate < today ? ` · Zieldatum ${formatDate(g.targetDate)} überschritten` : ` · ca. ${formatMoney(Math.ceil(rest / months))} pro Monat bis ${formatDate(g.targetDate)}`;
-        }
+        const { ratio, note } = goalInfo(g, today);
         const card = el("article", { class: "card ct-card" },
           el("div", { class: "section-head" }, el("h2", { class: "ct-name", text: g.name }), el("span", { class: "chip", text: `${Math.min(100, Math.round(ratio * 100))} %` })),
           bar(Math.min(1, ratio), ratio >= 1 ? "ok" : "goal"),

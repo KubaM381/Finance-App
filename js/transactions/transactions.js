@@ -4,8 +4,8 @@
 //   { id, accountId, date: "YYYY-MM-DD", amount: Cent (vorzeichenbehaftet), type: "income"|"expense",
 //     payee, purpose, category, currency, key (Duplikat-Schlüssel), batchId, source: "csv"|"pdf", importedAt }
 import { getAll, putBatch, deleteByIndex, deleteRecord, newId } from "../db/database.js";
-import { categorize, normalizeText } from "./categories.js";
-import { ruleCategory } from "./rules.js";
+import { normalizeText } from "./categories.js";
+import { autoCategory } from "./rules.js";
 import { findTransfers, isTransfer } from "./transfers.js";
 
 export { normalizeText, findTransfers, isTransfer };
@@ -140,7 +140,7 @@ export function validateDraft(d) {
   d.issues = issues;
   d.status = issues.some((i) => i.level === "error") ? "error" : issues.length ? "warn" : "ok";
   d.type = d.amount == null ? null : d.amount >= 0 ? "income" : "expense";
-  if (d.categoryAuto) d.category = ruleCategory(d.payee, d.purpose, d.type) || categorize(`${d.payee} ${d.purpose}`, d.type);
+  if (d.categoryAuto) d.category = autoCategory(d.payee, d.purpose, d.type);
   return d;
 }
 
@@ -180,6 +180,7 @@ export const toRecord = (d, accountId, batchId, source, importedAt) => ({
   payee: d.payee,
   purpose: d.purpose,
   category: d.category,
+  categoryManual: d.categoryAuto === false,
   currency: d.currency,
   key: dedupeKey(accountId, d),
   batchId,

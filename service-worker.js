@@ -1,5 +1,5 @@
-// Bei jeder Änderung an den App-Dateien die Versionsnummer erhöhen (v9 → v10 …).
-const CACHE = "finance-app-v9";
+// Bei jeder Änderung an den App-Dateien die Versionsnummer erhöhen (v10 → v11 …).
+const CACHE = "finance-app-v10";
 
 // Nur diese statischen App-Dateien werden gecached. Alles andere läuft am Cache vorbei,
 // damit niemals persönliche Daten, Importdateien oder fremde Inhalte im Cache landen.
@@ -32,6 +32,7 @@ const SHELL = [
   "./js/security/security.js",
   "./js/import/importer.js",
   "./js/import/csv.js",
+  "./js/import/balance.js",
   "./js/import/pdf.js",
   "./js/vendor/pdfjs/pdf.min.mjs",
   "./js/vendor/pdfjs/pdf.worker.min.mjs",

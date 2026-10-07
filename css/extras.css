@@ -150,22 +150,30 @@
 
 /* ---------- App-Sperre ---------- */
 
-html.locked body > *:not(.lock) { visibility: hidden; }
+/* Bei gesperrter App ist sonst nichts im Layout – so gibt es nichts zum Scrollen oder Verschieben. */
+html.locked, html.locked body { height: 100%; overflow: hidden; }
+html.locked body > *:not(.lock):not(svg) { display: none !important; }
 
 .lock {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(var(--sat) + 16vh) 24px calc(var(--sab) + 24px);
   background: var(--bg);
 }
 
-.lock-box { display: grid; gap: 12px; width: min(100%, 320px); text-align: center; }
+.lock-box { display: grid; gap: 12px; width: min(100%, 320px); margin: 0 auto; text-align: center; }
 .lock-box h1 { font-size: 26px; }
 
 .lock-input {
+  width: 100%;
   min-height: 52px;
   padding: 0 16px;
   border: 1px solid var(--line);
@@ -174,7 +182,13 @@ html.locked body > *:not(.lock) { visibility: hidden; }
   color: var(--ink);
   font-size: 24px;
   letter-spacing: 0.3em;
+  text-indent: 0.3em; /* gleicht den Abstand nach dem letzten Zeichen aus, damit die PIN mittig steht */
   text-align: center;
 }
 
+.lock-input::placeholder { letter-spacing: normal; text-indent: 0; }
 .lock-error { min-height: 1.4em; font-size: 14px; color: var(--expense); }
+
+.pv-balance { margin-top: 4px; }
+.cleanup-summary { font-size: 15px; font-weight: 650; cursor: pointer; padding: 8px 0; }
+.tx-cleanup:not(:empty) { margin-bottom: 4px; }
